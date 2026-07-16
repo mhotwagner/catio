@@ -54,5 +54,5 @@ Zoey (up top) and Hoby (down low). Both on the couch now, obviously.
 
 ## Revision history
 
-`revisions/` holds every draft — V1 rA–rH and V2 r1–r4. The latest of each
+`revisions/` holds every draft — V1 rA–rH and V2 r1–r5. The latest of each
 line lives at `index.html` / `v2.html`.

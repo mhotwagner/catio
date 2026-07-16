@@ -59,8 +59,8 @@ Two route-design principles: **the higher the platform, the easier the moves to 
 - [ ] `index.html` (V1 as-built) untouched
 - [ ] Model renders clean (no console errors); nothing z-fighting or floating
 
-## Architecture target
-Current state: envelope constants and geometry helpers (`box, addBox, newPanel, peg, diagXY…`) are clean, but the interior ("V2 INTERIOR" section, ~line 557) is inline `addBox` calls with hardcoded coordinates. Target: an `APPARATUS` config array (id, type, position, dimensions, phase, built: true/false) consumed by per-type builder functions, so adding apparatus means appending a config entry — and the array doubles as the manifest of planned vs. built. **Do this refactor before the apparatus wall goes in.** Envelope constants and panel-building code stay as they are.
+## Architecture (data layer landed in r6)
+Envelope constants and geometry helpers (`box, addBox, newPanel, peg, diagXY…`) are clean; panel-building code stays as it is. The interior is data-driven: the `APPARATUS` config array — entries `{id, type, name, pos, dims, phase, built}`, where `pos` is the west/floor/north min corner in world inches and `dims` is `{w: E–W, d: N–S, h: height}` — is consumed by per-type builder functions (`buildSectional`, `buildChaise`, …) via the `BUILDERS` dispatch map. Adding apparatus means appending a config entry, plus a builder if the type is new; the array doubles as the manifest of planned (`built: false`) vs. built. `phase` 0 = furniture/layout, 1–3 = catalog build order. Key config values off the envelope constants — never hardcode a duplicate of an envelope dimension. Scenery (stowed V1 interior, residents, compass, dimension labels) stays inline in the "V2 INTERIOR — scenery" section and is not apparatus.
 
 ## Repo map
 - `v2.html` — active V2 draft
