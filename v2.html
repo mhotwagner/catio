@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catio V2 — draft r5</title>
+<style>
+  :root{
+    --panel:rgba(24,27,32,0.90);
+    --text:#eef0f2;
+    --dim:#9aa3ac;
+    --stain:#7a5a34;
+    --new:#c99a3f;
+  }
+  html,body{margin:0;height:100%;overflow:hidden;background:#e9edf0;
+    font-family:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace;}
+  canvas{display:block;}
+  #hud{position:fixed;top:14px;left:14px;max-width:min(470px,calc(100vw - 28px));
+    background:var(--panel);color:var(--text);border-radius:10px;padding:12px 14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.25);backdrop-filter:blur(6px);}
+  #hud h1{margin:0 0 2px;font-size:14px;font-weight:700;letter-spacing:.06em;}
+  #hud h1 span{color:var(--new);}
+  #hud p{margin:2px 0 0;font-size:11px;color:var(--dim);line-height:1.5;}
+  #controls{position:fixed;bottom:14px;left:14px;display:flex;flex-wrap:wrap;gap:6px;
+    max-width:calc(100vw - 28px);}
+  #controls button{font:inherit;font-size:11.5px;letter-spacing:.03em;color:var(--text);
+    background:var(--panel);border:1px solid rgba(255,255,255,.14);border-radius:999px;
+    padding:7px 13px;cursor:pointer;transition:background .15s,border-color .15s;}
+  #controls button:hover{border-color:var(--new);}
+  #controls button.on{background:var(--stain);border-color:var(--stain);color:#fff;}
+  #controls button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  #legend{position:fixed;top:14px;right:14px;background:var(--panel);color:var(--dim);
+    border-radius:10px;font-size:10.5px;line-height:1.6;max-width:300px;overflow:hidden;
+    box-shadow:0 6px 24px rgba(0,0,0,.25);backdrop-filter:blur(6px);}
+  #legendHead{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;
+    color:var(--text);font-weight:600;font-size:11px;letter-spacing:.05em;
+    -webkit-user-select:none;user-select:none;}
+  #legendHead:hover{color:#fff;}
+  #legendHead .chev{margin-left:auto;transition:transform .2s;color:var(--dim);}
+  #legend.collapsed .chev{transform:rotate(-90deg);}
+  #legendBody{padding:0 12px 10px;}
+  #legendBody b{color:var(--text);font-weight:600;}
+  #legendBody i{color:var(--new);font-style:normal;}
+  #legend.collapsed #legendBody{display:none;}
+  @media (max-width:700px){ #hud{max-width:calc(100vw - 160px);} }
+</style>
+</head>
+<body>
+<div id="hud">
+  <h1>CATIO <span>V2</span> — DRAFT R5</h1>
+  <p>lounge under the flap &middot; door position: two options<br>
+  drag&nbsp;&middot;&nbsp;orbit&nbsp;&nbsp;|&nbsp;&nbsp;scroll / pinch&nbsp;&middot;&nbsp;zoom&nbsp;&nbsp;|&nbsp;&nbsp;shift-drag&nbsp;&middot;&nbsp;pan</p>
+</div>
+<div id="controls">
+  <button data-view="corner" class="on">SE corner</button>
+  <button data-view="east">East face</button>
+  <button data-view="south">South end</button>
+  <button data-view="top">Top</button>
+  <button id="btnMesh">Hide wire</button>
+  <button id="btnRoof">Hide roof</button>
+  <button id="btnCeil">Hide TBD ceiling</button>
+  <button id="btnV1">Show V1 interior</button>
+  <button id="btnDoorPos">Door: W corner</button>
+  <button id="btnExplode">Explode</button>
+  <button id="btnDoor">Open door</button>
+  <button id="btnFlap">Open flap</button>
+  <button id="btnDims">Dimensions</button>
+</div>
+<div id="legend">
+  <div id="legendHead">V2 SPECS <span class="chev">&#9662;</span></div>
+  <div id="legendBody">
+    <b>V2 layout draft (interior TBD):</b><br>
+    E panels pulled to the doorframe &mdash; now 88" &times; 78"<br>
+    S run locked W&rarr;E: <i>26" door + 24" panel</i> + V1 panel<br>
+    sectional: full N wall + W chaise &mdash; flap exits onto it<br>
+    short chaise on the W wall &middot; door: W corner / middle toggle<br>
+    <i>gold</i> = new yellow pine &middot; amber grid @ 80" = ceiling, TBD<br>
+    old quad panel leaning on the wall, awaiting a plan
+  </div>
+</div>
+<canvas id="c"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ---------- axes: +X = east, +Z = south, +Y = up ---------- */
+var D1 = 38;     // V1 width; the wing/roof geometry still keys off this
+var XE = 88;     // V2 east face: pulled out to the doorframe edge
+var L  = 78;     // length N-S (unchanged: two 39" panels)
+var H  = 80;     // panel height
+var TE = 30;     // old quad panel, north end
+var TS = 6;      // old quad panel, south end
+var T  = 1.5;
+var SLOPE = (TE - TS) / L;
+var RAILS = [0.75, 24.75, 55.25, 79.25];
+
+/* ---------- renderer / scene ---------- */
+var canvas = document.getElementById('c');
+var renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe9edf0);
+scene.fog = new THREE.Fog(0xe9edf0, 700, 1400);
+
+var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 1, 3000);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a94a0, 0.85));
+var sun = new THREE.DirectionalLight(0xfff2dd, 0.85);
+sun.position.set(200, 230, 190);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -120; sun.shadow.camera.right = 240;
+sun.shadow.camera.top = 220;  sun.shadow.camera.bottom = -60;
+sun.shadow.camera.near = 10;  sun.shadow.camera.far = 800;
+scene.add(sun);
+
+/* ---------- materials ---------- */
+var M = {
+  stain:   new THREE.MeshLambertMaterial({color: 0x59422a}),
+  stainDk: new THREE.MeshLambertMaterial({color: 0x4c3722}),
+  yp:      new THREE.MeshLambertMaterial({color: 0xcfa14f}),   // new yellow pine
+  ypDk:    new THREE.MeshLambertMaterial({color: 0xb98c40}),
+  pine:    new THREE.MeshLambertMaterial({color: 0xc7a468}),
+  peg:     new THREE.MeshLambertMaterial({color: 0xb08d52}),
+  rust:    new THREE.MeshLambertMaterial({color: 0x91502e}),
+  trim:    new THREE.MeshLambertMaterial({color: 0xf3f1ea}),
+  ply:     new THREE.MeshLambertMaterial({color: 0xc99f63}),
+  glass:   new THREE.MeshLambertMaterial({color: 0x9fb6bf, emissive: 0x223038}),
+  flap:    new THREE.MeshLambertMaterial({color: 0x2d2f33}),
+  black:   new THREE.MeshLambertMaterial({color: 0x141417}),
+  steel:   new THREE.MeshLambertMaterial({color: 0x8a8f96}),
+  orange:  new THREE.MeshLambertMaterial({color: 0xc06a2e}),
+  tanKnit: new THREE.MeshLambertMaterial({color: 0xc4b98e}),
+  plaid:   new THREE.MeshLambertMaterial({color: 0x7d5a52}),
+  plaidLn: new THREE.MeshLambertMaterial({color: 0x46414f}),
+  rush:    new THREE.MeshLambertMaterial({color: 0xbfa878}),
+  cushion: new THREE.MeshLambertMaterial({color: 0x6e8a92}),
+  bedGray: new THREE.MeshLambertMaterial({color: 0x5c5f63}),
+  bowl:    new THREE.MeshLambertMaterial({color: 0xf0efeb}),
+  water:   new THREE.MeshLambertMaterial({color: 0x5f88a5}),
+  compass: new THREE.MeshLambertMaterial({color: 0x6b7178})
+};
+var wireMat = new THREE.LineBasicMaterial({color: 0xaab2b8, transparent: true, opacity: 0.95});
+var tbdMat  = new THREE.LineBasicMaterial({color: 0xd9932f, transparent: true, opacity: 0.9});
+
+/* ---------- helpers ---------- */
+function box(sx, sy, sz, mat){
+  var m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+function addBox(parent, cx, cy, cz, sx, sy, sz, mat){
+  var m = box(sx, sy, sz, mat);
+  m.position.set(cx, cy, cz);
+  parent.add(m);
+  return m;
+}
+function v(x, y, z){ return new THREE.Vector3(x, y, z); }
+
+var panels = [];
+var wireSegs = [];
+var flapPivot = null;
+var doorPivotA = null, doorPivotM = null;   // entry door, two position options
+var v1Group = null;      // stowed V1 interior
+function newPanel(parent, ox, oy, oz){
+  var g = new THREE.Group();
+  g.userData.off = new THREE.Vector3(ox, oy, oz);
+  panels.push(g);
+  parent.add(g);
+  return g;
+}
+function lines(parent, pts, mat){
+  var g = new THREE.BufferGeometry().setFromPoints(pts);
+  var ls = new THREE.LineSegments(g, mat || wireMat);
+  parent.add(ls);
+  wireSegs.push(ls);
+  return ls;
+}
+function peg(parent, x, y, z, axis){
+  var m = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.6, 10), M.peg);
+  if (axis === 'x') m.rotation.z = Math.PI / 2;
+  else if (axis === 'z') m.rotation.x = Math.PI / 2;
+  m.position.set(x, y, z);
+  parent.add(m);
+}
+function diagXY(parent, x1, y1, x2, y2, z, mat){
+  var dx = x2 - x1, dy = y2 - y1;
+  var len = Math.sqrt(dx*dx + dy*dy);
+  var m = box(len, T, T, mat);
+  m.position.set((x1+x2)/2, (y1+y2)/2, z);
+  m.rotation.z = Math.atan2(dy, dx);
+  parent.add(m);
+  return m;
+}
+function diagZY(parent, z1, y1, z2, y2, x, sx, sy, mat){
+  var dz = z2 - z1, dy = y2 - y1;
+  var len = Math.sqrt(dz*dz + dy*dy);
+  var m = box(sx, sy, len, mat);
+  m.position.set(x, (y1+y2)/2, (z1+z2)/2);
+  m.rotation.x = -Math.atan2(dy, dz);
+  parent.add(m);
+  return m;
+}
+function makeLabel(text, scl){
+  var pad = 26, fs = 40;
+  var c = document.createElement('canvas');
+  var g = c.getContext('2d');
+  g.font = '600 ' + fs + 'px ui-monospace, Menlo, Consolas, monospace';
+  var w = Math.ceil(g.measureText(text).width);
+  c.width = w + pad * 2; c.height = fs + pad * 1.3;
+  g = c.getContext('2d');
+  g.font = '600 ' + fs + 'px ui-monospace, Menlo, Consolas, monospace';
+  var r = 16, ww = c.width, hh = c.height;
+  g.fillStyle = 'rgba(24,27,32,0.92)';
+  g.beginPath();
+  g.moveTo(r, 0);
+  g.arcTo(ww, 0, ww, hh, r);
+  g.arcTo(ww, hh, 0, hh, r);
+  g.arcTo(0, hh, 0, 0, r);
+  g.arcTo(0, 0, ww, 0, r);
+  g.closePath(); g.fill();
+  g.fillStyle = '#f2f4f6';
+  g.textBaseline = 'middle';
+  g.fillText(text, pad, hh/2 + 2);
+  var tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, depthTest: false, transparent: true}));
+  var s = scl || 0.13;
+  sp.scale.set(c.width * s, c.height * s, 1);
+  return sp;
+}
+
+/* ================================================================
+   HOUSE, ROOF, DECK (unchanged from V1 — roof still ends at x~50)
+================================================================ */
+var clapTex = (function(){
+  var c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  var g = c.getContext('2d');
+  g.fillStyle = '#4a515b'; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = 'rgba(0,0,0,0.30)'; g.fillRect(0, 0, 64, 6);
+  g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(0, 58, 64, 6);
+  return c;
+})();
+function clapMat(vRepeat){
+  var t = new THREE.CanvasTexture(clapTex);
+  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, vRepeat);
+  return new THREE.MeshLambertMaterial({map: t});
+}
+var roofGroup = new THREE.Group();
+scene.add(roofGroup);
+(function(){
+  var north = new THREE.Mesh(new THREE.PlaneGeometry(300, 130), clapMat(130/6));
+  north.position.set(50, 65, -0.8);
+  north.receiveShadow = true;
+  scene.add(north);
+
+  var quadMat = (function(){
+    var t = new THREE.CanvasTexture(clapTex);
+    t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping;
+    return new THREE.MeshLambertMaterial({map: t, side: THREE.DoubleSide});
+  })();
+  function texQuad(p, uvf){
+    var g = new THREE.BufferGeometry();
+    var pos = [], uv = [];
+    for (var i = 0; i < 4; i++){
+      pos.push(p[i][0], p[i][1], p[i][2]);
+      var t = uvf(p[i]);
+      uv.push(t[0], t[1]);
+    }
+    g.setIndex([0, 1, 2, 0, 2, 3]);
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.computeVertexNormals();
+    var m = new THREE.Mesh(g, quadMat);
+    m.receiveShadow = true;
+    scene.add(m);
+    return m;
+  }
+
+  var yS = H + TS;
+  texQuad(
+    [[-0.4, 0, 0], [-0.4, H + TE, 0], [-0.4, yS, L], [-0.4, 0, L]],
+    function(p){ return [p[2] / 48, p[1] / 6]; }
+  );
+  texQuad(
+    [[-100, 0, L], [0, 0, L], [0, yS, L], [-100, yS, L]],
+    function(p){ return [p[0] / 48, p[1] / 6]; }
+  );
+
+  var OV = 12;
+  var ang = Math.atan(SLOPE);
+  var roofW = 100 + D1 + OV;
+  var roofL = (L + OV + 2) / Math.cos(ang);
+  var zc = (L + OV - 2) / 2;
+  var yUc = (H + TE + 0.5) - SLOPE * zc;
+  var roofBody = box(roofW, 6.5, roofL, M.trim);
+  roofBody.position.set((D1 + OV - 100) / 2, yUc + 3.3, zc);
+  roofBody.rotation.x = ang;
+  roofGroup.add(roofBody);
+  var shingles = box(roofW + 2, 1.6, roofL + 2,
+    new THREE.MeshLambertMaterial({color: 0x3b3733}));
+  shingles.position.set((D1 + OV - 100) / 2, yUc + 7.5, zc);
+  shingles.rotation.x = ang;
+  roofGroup.add(shingles);
+
+  addBox(roofGroup, (D1 + OV - 100) / 2, H + TS/2, L + 1.2, roofW - 2, TS, 3, M.trim);
+  addBox(roofGroup, (D1 + OV - 100) / 2, (H + TE - SLOPE * (L + OV)) + 1.5, L + OV + 1,
+    roofW, 4, 4, new THREE.MeshLambertMaterial({color: 0xd8dad9}));
+
+  // people door on the NORTH wall (the V2 east face lands at its trim edge)
+  addBox(scene, 108, 41.5, 0.6, 40, 87, 1.2, M.trim);
+  addBox(scene, 108, 40, 1.2, 32, 80, 1.0,
+    new THREE.MeshLambertMaterial({color: 0xe7e4da}));
+  addBox(scene, 108, 60, 1.9, 24, 26, 0.5, M.glass);
+  var knob = new THREE.Mesh(new THREE.SphereGeometry(1.3, 12, 10), M.steel);
+  knob.position.set(96, 38, 2.4);
+  scene.add(knob);
+
+  addBox(scene, 66, 57, 1.6, 11, 13, 3.2, new THREE.MeshLambertMaterial({color: 0x4a4d52}));
+  addBox(scene, 63, 25, 1.2, 1.6, 50, 1.6, new THREE.MeshLambertMaterial({color: 0x565a60}));
+  addBox(scene, 69, 25, 1.2, 1.6, 50, 1.6, new THREE.MeshLambertMaterial({color: 0x565a60}));
+  addBox(scene, 82, 62, 2, 4, 7, 4, M.black);
+
+  var plankCols = [0xcdd0c9, 0xc2beb2, 0xd5d7d2, 0xbab5a8];
+  for (var i = 0; i < 44; i++){
+    var pm = new THREE.MeshLambertMaterial({color: plankCols[i % 4]});
+    var p = box(5.4, 1.2, 260, pm);
+    p.position.set(i * 5.6 - 97, -0.6, 130);
+    p.castShadow = false;
+    scene.add(p);
+  }
+})();
+
+/* ---------- window + cat flap, NORTH wall (unchanged) ---------- */
+(function(){
+  var wx0 = 4, wx1 = 28, wy0 = 26, wy1 = 74;
+  var g = new THREE.Group();
+  addBox(g, (wx0+wx1)/2, wy1 + 1.75, 0.6, (wx1-wx0) + 10, 3.5, 1.2, M.trim);
+  addBox(g, (wx0+wx1)/2, wy0 - 1.75, 0.6, (wx1-wx0) + 10, 3.5, 1.2, M.trim);
+  addBox(g, wx0 - 1.75, (wy0+wy1)/2, 0.6, 3.5, (wy1-wy0) + 7, 1.2, M.trim);
+  addBox(g, wx1 + 1.75, (wy0+wy1)/2, 0.6, 3.5, (wy1-wy0) + 7, 1.2, M.trim);
+  addBox(g, (wx0+wx1)/2, (wy0+wy1)/2, 0.6, (wx1-wx0), 2.4, 1.1, M.trim);
+  addBox(g, (wx0+wx1)/2, (wy1 + (wy0+wy1)/2)/2, 0.35, (wx1-wx0) - 2, (wy1-wy0)/2 - 3, 0.5, M.glass);
+  addBox(g, (wx0+wx1)/2, (wy0 + (wy0+wy1)/2)/2, 0.5, (wx1-wx0) - 2, (wy1-wy0)/2 - 3, 0.8, M.ply);
+  var fx = (wx0+wx1)/2, fy = wy0 + 11;
+  addBox(g, fx, fy, 1.1, 12, 14, 0.8, M.trim);
+  flapPivot = new THREE.Group();
+  flapPivot.position.set(fx, fy + 4.75, 1.5);
+  addBox(flapPivot, 0, -5.25, 0, 8.5, 10.5, 0.4, M.flap);
+  g.add(flapPivot);
+  scene.add(g);
+})();
+
+/* ================================================================
+   V1 PANELS, RELOCATED / MODIFIED
+================================================================ */
+
+/* ---- old FRONT (south) panel: slid to the EAST corner, x 50-88 ---- */
+(function(){
+  var p = newPanel(scene, 0, 0, 30);
+  addBox(p, 50.75, H/2, L, T, H, T, M.stain);
+  addBox(p, 87.25, H/2, L, T, H, T, M.stain);
+  RAILS.forEach(function(y){
+    addBox(p, 69, y, L, D1 - 3, T, T, M.stain);
+  });
+  diagXY(p, 52.2, 71.6, 59, 78.4, L, M.stainDk);
+  diagXY(p, 79, 78.4, 85.8, 71.6, L, M.stainDk);
+  diagXY(p, 52.2, 8.4, 59, 1.6, L, M.stainDk);
+  diagXY(p, 79, 1.6, 85.8, 8.4, L, M.stainDk);
+  [50.75, 87.25].forEach(function(x){
+    RAILS.forEach(function(y){ peg(p, x, y, L + 0.85, 'z'); });
+  });
+  var pts = [], x, y;
+  for (x = 50; x <= 88; x += 4){ pts.push(v(x, 0, L), v(x, H, L)); }
+  for (y = 0; y <= H; y += 4){ pts.push(v(50, y, L), v(88, y, L)); }
+  lines(p, pts);
+})();
+
+/* ---- SIDE (east) panels: pulled out to x = 88, the doorframe edge ---- */
+[0, 39].forEach(function(z0, idx){
+  var p = newPanel(scene, 30, 0, idx === 0 ? -5 : 5);
+  addBox(p, XE, H/2, z0 + 0.75, T, H, T, M.stain);
+  addBox(p, XE, H/2, z0 + 38.25, T, H, T, M.stain);
+  RAILS.forEach(function(y){
+    addBox(p, XE, y, z0 + 19.5, T, T, 36, M.stain);
+  });
+  diagZY(p, z0 + 2.2, 71.6, z0 + 9, 78.4, XE, T, T, M.stainDk);
+  diagZY(p, z0 + 30, 78.4, z0 + 36.8, 71.6, XE, T, T, M.stainDk);
+  diagZY(p, z0 + 2.2, 8.4, z0 + 9, 1.6, XE, T, T, M.stainDk);
+  diagZY(p, z0 + 30, 1.6, z0 + 36.8, 8.4, XE, T, T, M.stainDk);
+  [z0 + 0.75, z0 + 38.25].forEach(function(z){
+    RAILS.forEach(function(y){ peg(p, XE + 0.85, y, z, 'x'); });
+  });
+  var pts = [], z, y;
+  for (z = z0; z <= z0 + 38; z += 4){ pts.push(v(XE, 0, z), v(XE, H, z)); }
+  for (y = 0; y <= H; y += 4){ pts.push(v(XE, y, z0), v(XE, y, z0 + 39)); }
+  lines(p, pts);
+});
+
+/* ---- old QUAD top panel: no roofline out at x=88 — leaning on the
+       wing wall, awaiting reassignment (part of the roof question) ---- */
+(function(){
+  var g = new THREE.Group();
+  addBox(g, 39, 0.75, 0, 78, T, T, M.stain);
+  addBox(g, 0.75, TE/2, 0, T, TE, T, M.stain);
+  addBox(g, 77.25, TS/2, 0, T, TS, T, M.stain);
+  diagXY(g, 0.75, TE - 0.75, 77.25, TS - 0.75, 0, M.stain);
+  var pts = [], x, y;
+  for (x = 0; x <= 78; x += 4){
+    var yt = TE - (TE - TS) * x / 78;
+    pts.push(v(x, 1.5, 0), v(x, yt - 0.4, 0));
+  }
+  for (y = 4; y <= TE - 2; y += 4){
+    var xe = (y <= TS) ? 78 : (TE - y) * 78 / (TE - TS);
+    if (xe > 1) pts.push(v(0, y, 0), v(xe, y, 0));
+  }
+  lines(g, pts);
+  g.position.set(-83, 0.6, L + 6.5);
+  g.rotation.x = -0.2;
+  scene.add(g);
+})();
+
+/* ================================================================
+   NEW SOUTH RUN (yellow pine) — LOCKED: 26" door + 24" panel
+   Door position: W corner (default) or middle — toggleable
+================================================================ */
+var posW = new THREE.Group();
+var posM = new THREE.Group();
+scene.add(posW); scene.add(posM);
+posM.visible = false;
+
+/* ---- W-corner variant: 24" wire panel, x 26-50 ---- */
+(function(){
+  var p = newPanel(posW, 0, 0, 46);
+  addBox(p, 26.75, H/2, L, T, H, T, M.yp);
+  addBox(p, 49.25, H/2, L, T, H, T, M.yp);
+  RAILS.forEach(function(y){
+    addBox(p, 38, y, L, 21, T, T, M.yp);
+  });
+  diagXY(p, 28.2, 72.6, 33.5, 77.9, L, M.ypDk);
+  diagXY(p, 42.5, 77.9, 47.8, 72.6, L, M.ypDk);
+  diagXY(p, 28.2, 7.4, 33.5, 2.1, L, M.ypDk);
+  diagXY(p, 42.5, 2.1, 47.8, 7.4, L, M.ypDk);
+  [26.75, 49.25].forEach(function(x){
+    RAILS.forEach(function(y){ peg(p, x, y, L + 0.85, 'z'); });
+  });
+  var pts = [], x, y;
+  for (x = 26; x <= 50; x += 4){ pts.push(v(x, 0, L), v(x, H, L)); }
+  for (y = 0; y <= H; y += 4){ pts.push(v(26, y, L), v(50, y, L)); }
+  lines(p, pts);
+})();
+
+/* ---- W-corner variant: 26" door panel at the WEST corner, x 0-26 ---- */
+(function(){
+  var p = newPanel(posW, 0, 0, 58);
+  addBox(p, 0.75, H/2, L, T, H, T, M.yp);
+  addBox(p, 25.25, H/2, L, T, H, T, M.yp);
+  addBox(p, 13, 79.25, L, 23, T, T, M.yp);
+  addBox(p, 13, 0.75, L, 23, T, T, M.yp);
+  [0.75, 25.25].forEach(function(x){
+    [0.75, 79.25].forEach(function(y){ peg(p, x, y, L + 0.85, 'z'); });
+  });
+  // hinges on the WEST stile, so the door folds back along the wing wall
+  [12, 40, 68].forEach(function(y){
+    addBox(p, 0.8, y, L + 1, 1, 4, 0.6, M.black);
+  });
+  doorPivotA = new THREE.Group();
+  doorPivotA.position.set(1.5, 0, L + 0.8);
+  p.add(doorPivotA);
+  addBox(doorPivotA, 11.5, 77.75, 0, 23, T, T, M.ypDk);
+  addBox(doorPivotA, 11.5, 2.25, 0, 23, T, T, M.ypDk);
+  addBox(doorPivotA, 11.5, 40, 0, 23, T, T, M.ypDk);
+  addBox(doorPivotA, 0.75, 40, 0, T, 77, T, M.ypDk);
+  addBox(doorPivotA, 22.25, 40, 0, T, 77, T, M.ypDk);
+  diagXY(doorPivotA, 1.5, 38.5, 21.5, 4, 0, M.ypDk);
+  var hA = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 10), M.steel);
+  hA.position.set(20.2, 38, 1.7); doorPivotA.add(hA);
+  var pts = [], x, y;
+  for (x = 0; x <= 22; x += 4){ pts.push(v(x, 2, 0.3), v(x, 78, 0.3)); }
+  for (y = 2; y <= 78; y += 4){ pts.push(v(0.75, y, 0.3), v(22.25, y, 0.3)); }
+  lines(doorPivotA, pts);
+})();
+
+
+/* ---- Middle-door variant: 24" wire panel at the W corner, x 0-24 ---- */
+(function(){
+  var p = newPanel(posM, 0, 0, 46);
+  addBox(p, 0.75, H/2, L, T, H, T, M.yp);
+  addBox(p, 23.25, H/2, L, T, H, T, M.yp);
+  RAILS.forEach(function(y){
+    addBox(p, 12, y, L, 21, T, T, M.yp);
+  });
+  diagXY(p, 2.2, 72.6, 7.5, 77.9, L, M.ypDk);
+  diagXY(p, 16.5, 77.9, 21.8, 72.6, L, M.ypDk);
+  diagXY(p, 2.2, 7.4, 7.5, 2.1, L, M.ypDk);
+  diagXY(p, 16.5, 2.1, 21.8, 7.4, L, M.ypDk);
+  [0.75, 23.25].forEach(function(x){
+    RAILS.forEach(function(y){ peg(p, x, y, L + 0.85, 'z'); });
+  });
+  var pts = [], x, y;
+  for (x = 0; x <= 24; x += 4){ pts.push(v(x, 0, L), v(x, H, L)); }
+  for (y = 0; y <= H; y += 4){ pts.push(v(0, y, L), v(24, y, L)); }
+  lines(p, pts);
+})();
+
+/* ---- Middle-door variant: 26" door panel, x 24-50 ---- */
+(function(){
+  var p = newPanel(posM, 0, 0, 58);
+  addBox(p, 24.75, H/2, L, T, H, T, M.yp);
+  addBox(p, 49.25, H/2, L, T, H, T, M.yp);
+  addBox(p, 37, 79.25, L, 23, T, T, M.yp);
+  addBox(p, 37, 0.75, L, 23, T, T, M.yp);
+  [24.75, 49.25].forEach(function(x){
+    [0.75, 79.25].forEach(function(y){ peg(p, x, y, L + 0.85, 'z'); });
+  });
+  [12, 40, 68].forEach(function(y){
+    addBox(p, 24.8, y, L + 1, 1, 4, 0.6, M.black);
+  });
+  doorPivotM = new THREE.Group();
+  doorPivotM.position.set(25.5, 0, L + 0.8);
+  p.add(doorPivotM);
+  addBox(doorPivotM, 11.5, 77.75, 0, 23, T, T, M.ypDk);
+  addBox(doorPivotM, 11.5, 2.25, 0, 23, T, T, M.ypDk);
+  addBox(doorPivotM, 11.5, 40, 0, 23, T, T, M.ypDk);
+  addBox(doorPivotM, 0.75, 40, 0, T, 77, T, M.ypDk);
+  addBox(doorPivotM, 22.25, 40, 0, T, 77, T, M.ypDk);
+  diagXY(doorPivotM, 1.5, 38.5, 21.5, 4, 0, M.ypDk);
+  var hM = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 10), M.steel);
+  hM.position.set(20.2, 38, 1.7); doorPivotM.add(hM);
+  var mpts = [], mx, my;
+  for (mx = 0; mx <= 22; mx += 4){ mpts.push(v(mx, 2, 0.3), v(mx, 78, 0.3)); }
+  for (my = 2; my <= 78; my += 4){ mpts.push(v(0.75, my, 0.3), v(22.25, my, 0.3)); }
+  lines(doorPivotM, mpts);
+})();
+
+/* ================================================================
+   PROPOSED CEILING — the roof question, rendered in amber (TBD)
+================================================================ */
+var ceilGroup = new THREE.Group();
+scene.add(ceilGroup);
+(function(){
+  var pts = [], x, z;
+  for (x = 0; x <= XE; x += 4){ pts.push(v(x, 80.4, 0), v(x, 80.4, L)); }
+  for (z = 0; z <= L; z += 4){ pts.push(v(0, 80.4, z), v(XE, 80.4, z)); }
+  var g = new THREE.BufferGeometry().setFromPoints(pts);
+  ceilGroup.add(new THREE.LineSegments(g, tbdMat));
+})();
+
+/* ================================================================
+   V2 INTERIOR — lounge first; apparatus wall comes next
+================================================================ */
+(function(){
+  /* ---- V1 interior, stowed (toggle to peek) ---- */
+  v1Group = new THREE.Group();
+  v1Group.visible = false;
+  scene.add(v1Group);
+  var upper = new THREE.Group();
+  [XE - 18, XE - 13, XE - 8, XE - 3].forEach(function(xc){
+    addBox(upper, xc, 56.5, 58.5, 3.6, 1.4, 37, M.stain);
+  });
+  addBox(upper, XE - 11, 58.4, 64, 18, 2.4, 20, M.tanKnit);
+  diagXY(upper, XE - 1, 48.5, XE - 19, 55.6, 46, M.stainDk);
+  diagXY(upper, XE - 1, 48.5, XE - 19, 55.6, 71, M.stainDk);
+  v1Group.add(upper);
+  var lower = new THREE.Group();
+  addBox(lower, XE - 7.5, 26, 19.5, 14, 1.8, 37, M.stain);
+  addBox(lower, XE - 7.5, 27.4, 19.5, 15.5, 1.6, 38, M.plaid);
+  addBox(lower, XE - 7.5, 28.3, 11, 15.7, 0.3, 1.6, M.plaidLn);
+  addBox(lower, XE - 7.5, 28.3, 27, 15.7, 0.3, 1.6, M.plaidLn);
+  addBox(lower, XE - 11, 28.3, 19.5, 1.4, 0.3, 38.2, M.plaidLn);
+  diagXY(lower, XE - 1, 18, XE - 13, 25, 8, M.stainDk);
+  diagXY(lower, XE - 1, 18, XE - 13, 25, 31, M.stainDk);
+  v1Group.add(lower);
+  var chair = new THREE.Group();
+  chair.position.set(11, 0, 9);
+  [[-6,-5.5],[6,-5.5]].forEach(function(pp){
+    addBox(chair, pp[0], 17, pp[1], 1.4, 34, 1.4, M.stainDk);
+  });
+  [[-6,5.5],[6,5.5]].forEach(function(pp){
+    addBox(chair, pp[0], 8, pp[1], 1.4, 16, 1.4, M.stainDk);
+  });
+  addBox(chair, 0, 16.3, 0, 14, 1.6, 13, M.stainDk);
+  addBox(chair, 0, 17.3, 0, 12.5, 0.5, 11.5, M.rush);
+  addBox(chair, 0, 27, -5.5, 13, 2, 1, M.stainDk);
+  addBox(chair, 0, 32, -5.5, 13, 2, 1, M.stainDk);
+  v1Group.add(chair);
+  var bed = new THREE.Mesh(new THREE.CylinderGeometry(8, 8.5, 4, 24), M.bedGray);
+  bed.position.set(10, 2, 22); bed.castShadow = bed.receiveShadow = true;
+  v1Group.add(bed);
+  var bowl = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 2.6, 2.4, 20), M.bowl);
+  bowl.position.set(36, 1.2, 60); bowl.castShadow = true; v1Group.add(bowl);
+  var water = new THREE.Mesh(new THREE.CylinderGeometry(2.7, 2.7, 0.3, 20), M.water);
+  water.position.set(36, 2.3, 60); v1Group.add(water);
+  var toy = new THREE.Mesh(new THREE.SphereGeometry(1.1, 10, 8),
+    new THREE.MeshLambertMaterial({color: 0xe8e4dc}));
+  toy.position.set(41, 1.1, 63); toy.castShadow = true; v1Group.add(toy);
+  var cordCurve = new THREE.CatmullRomCurve3([
+    v(20, 0.5, 38), v(15, 0.5, 46), v(21, 0.5, 53), v(17, 0.5, 60)
+  ]);
+  v1Group.add(new THREE.Mesh(new THREE.TubeGeometry(cordCurve, 24, 0.35, 6, false), M.black));
+  addBox(v1Group, 44, 1.8, L - 13, 24, 3.4, 22, M.cushion);
+
+  /* ---- V2: outdoor sectional, NW corner, backs to the house —
+          the cat flap exits directly onto the sofa back ---- */
+  var fr = new THREE.MeshLambertMaterial({color: 0x4b4f54});
+  var cu = new THREE.MeshLambertMaterial({color: 0xb7b0a1});
+  var cb = new THREE.MeshLambertMaterial({color: 0xa8a193});
+  var sec = new THREE.Group();
+  addBox(sec, 44, 3, 17, 84, 6, 28, fr);       // north run base, x 2-86: full wall
+  addBox(sec, 17, 3, 44, 28, 6, 24, fr);       // W-wall chaise base, z 32-56
+  addBox(sec, 16.5, 10, 19.5, 26.5, 8, 22, cu);
+  addBox(sec, 44, 10, 19.5, 26.5, 8, 22, cu);
+  addBox(sec, 71.5, 10, 19.5, 26.5, 8, 22, cu);
+  addBox(sec, 17, 10, 44, 26, 8, 22, cu);      // chaise seat
+  addBox(sec, 44, 21, 4.5, 84, 16, 5, cb);     // back, N wall (top ~1" under the flap)
+  addBox(sec, 4.5, 21, 29, 5, 16, 54, cb);     // back, W wall
+  addBox(sec, 18.5, 13, 53.5, 27, 14, 5, cb);  // chaise foot arm (E end runs to the wall)
+  var pl1 = box(13, 12, 4, M.cushion);
+  pl1.position.set(46, 18, 8.8); pl1.rotation.y = 0.15; sec.add(pl1);
+  var pl2 = box(13, 12, 4, M.plaid);
+  pl2.position.set(8.8, 18, 40); pl2.rotation.y = Math.PI/2 - 0.2; sec.add(pl2);
+  var pl3 = box(13, 12, 4, M.tanKnit);
+  pl3.position.set(76, 18, 8.8); pl3.rotation.y = -0.2; sec.add(pl3);
+  scene.add(sec);
+
+  /* ---- residents, on board per spec ---- */
+  var cat = new THREE.Group();
+  var body = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), M.black);
+  body.scale.set(7.5, 3.6, 4); body.position.y = 3.4;
+  body.castShadow = true; cat.add(body);
+  var head = new THREE.Mesh(new THREE.SphereGeometry(2.8, 18, 12), M.black);
+  head.position.set(7.5, 4.6, 0); head.castShadow = true; cat.add(head);
+  [-1.4, 1.4].forEach(function(zo){
+    var ear = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2, 8), M.black);
+    ear.position.set(7.6, 7.4, zo); cat.add(ear);
+  });
+  var tcurve = new THREE.CatmullRomCurve3([
+    v(-6.5, 2, 0), v(-10, 1.4, 2.5), v(-12.5, 2.2, 5.5), v(-12.8, 4.8, 7.5)
+  ]);
+  var tail = new THREE.Mesh(new THREE.TubeGeometry(tcurve, 20, 0.85, 8, false), M.black);
+  tail.castShadow = true; cat.add(tail);
+  cat.position.set(28, 14.4, 19);
+  cat.rotation.y = -1.3;
+  cat.scale.set(1.18, 1.18, 1.18);
+  scene.add(cat);
+
+  var oc = new THREE.Group();
+  var ob = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 14), M.orange);
+  ob.scale.set(3.4, 5.2, 4); ob.position.y = 5; ob.castShadow = true; oc.add(ob);
+  var oh = new THREE.Mesh(new THREE.SphereGeometry(2.6, 16, 12), M.orange);
+  oh.position.set(0, 10.6, 1.4); oh.castShadow = true; oc.add(oh);
+  [-1.3, 1.3].forEach(function(xo){
+    var ear = new THREE.Mesh(new THREE.ConeGeometry(1, 1.9, 8), M.orange);
+    ear.position.set(xo, 13, 1.2); oc.add(ear);
+  });
+  [[-1.4],[1.4]].forEach(function(xo){
+    var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 5.5, 8), M.orange);
+    leg.position.set(xo[0], 2.8, 3.1); oc.add(leg);
+  });
+  var ocurve = new THREE.CatmullRomCurve3([
+    v(2.4, 1, -2.4), v(4, 0.9, 0), v(3, 0.9, 2.8), v(0.6, 1, 3.8)
+  ]);
+  oc.add(new THREE.Mesh(new THREE.TubeGeometry(ocurve, 20, 0.75, 8, false), M.orange));
+  oc.scale.set(0.8, 0.8, 0.8);
+  oc.position.set(28, 29.4, 4.8);
+  oc.rotation.y = 0;
+  scene.add(oc);
+})();
+
+/* ================================================================
+   COMPASS ROSE
+================================================================ */
+(function(){
+  var cx = XE + 42, cz = L + 38;
+  addBox(scene, cx, 0.25, cz, 1.6, 0.5, 30, M.compass);
+  addBox(scene, cx, 0.25, cz, 30, 0.5, 1.6, M.compass);
+  [['N', 0, -21], ['S', 0, 21], ['E', 21, 0], ['W', -21, 0]].forEach(function(d){
+    var sp = makeLabel(d[0], 0.10);
+    sp.position.set(cx + d[1], 3.5, cz + d[2]);
+    scene.add(sp);
+  });
+})();
+
+/* ================================================================
+   DIMENSION LABELS
+================================================================ */
+var dimGroup = new THREE.Group();
+dimGroup.visible = false;
+scene.add(dimGroup);
+(function(){
+  function place(text, x, y, z){
+    var sp = makeLabel(text);
+    sp.position.set(x, y, z);
+    dimGroup.add(sp);
+  }
+  place('E face \u2192 x=88 (doorframe edge)', XE + 28, 6, L/2);
+  place('door: W corner or middle \u2014 toggle', 20, 68, L + 22);
+  place('S run locked: door + 24" panel + V1 panel', 40, 6, L + 26);
+  place('sectional: full N wall \u2014 flap lands on it', 40, 42, 12);
+  place('chaise foot \u2192 22" gap to the door', 17, 24, 58);
+  place('ceiling @ 80" \u2014 TBD', 64, 92, 39);
+  place('quad panel: new home TBD', -44, 36, L + 14);
+  place('cat flap \u2192 house', 16, 86, 12);
+  place('Zoey', 30, 44, 5);
+  place('Hoby', 26, 28, 19);
+})();
+
+/* ================================================================
+   CAMERA / CONTROLS
+================================================================ */
+var cur  = {theta: 0.68, phi: 1.12, radius: 315, tx: XE/2, ty: 45, tz: L/2};
+var goal = {theta: cur.theta, phi: cur.phi, radius: cur.radius, tx: cur.tx, ty: cur.ty, tz: cur.tz};
+
+var VIEWS = {
+  corner: {theta: 0.68, phi: 1.12, radius: 315},
+  east:   {theta: 1.50, phi: 1.32, radius: 275},
+  south:  {theta: 0.02, phi: 1.34, radius: 270},
+  top:    {theta: 0.55, phi: 0.26, radius: 330}
+};
+
+function applyCamera(){
+  var st = Math.sin(cur.theta), ct = Math.cos(cur.theta);
+  var sp = Math.sin(cur.phi),  cp = Math.cos(cur.phi);
+  camera.position.set(
+    cur.tx + cur.radius * sp * st,
+    cur.ty + cur.radius * cp,
+    cur.tz + cur.radius * sp * ct
+  );
+  camera.lookAt(cur.tx, cur.ty, cur.tz);
+}
+
+var pointers = {};
+var lastPinch = null;
+
+canvas.addEventListener('pointerdown', function(e){
+  pointers[e.pointerId] = {x: e.clientX, y: e.clientY, button: e.button};
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', function(e){
+  var p = pointers[e.pointerId];
+  if (!p) return;
+  var ids = Object.keys(pointers);
+  if (ids.length === 2){
+    p.x = e.clientX; p.y = e.clientY;
+    var a = pointers[ids[0]], b = pointers[ids[1]];
+    var dist = Math.hypot(a.x - b.x, a.y - b.y);
+    if (lastPinch !== null){
+      goal.radius *= lastPinch / dist;
+      goal.radius = Math.min(800, Math.max(70, goal.radius));
+    }
+    lastPinch = dist;
+    return;
+  }
+  var dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (p.button === 2 || e.shiftKey){
+    var scale = goal.radius * 0.0016;
+    var right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+    var up    = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+    goal.tx += (-dx * right.x + dy * up.x) * scale;
+    goal.ty += (-dx * right.y + dy * up.y) * scale;
+    goal.tz += (-dx * right.z + dy * up.z) * scale;
+  } else {
+    goal.theta -= dx * 0.006;
+    goal.phi   -= dy * 0.005;
+    goal.phi = Math.min(1.52, Math.max(0.12, goal.phi));
+  }
+});
+function endPointer(e){
+  delete pointers[e.pointerId];
+  if (Object.keys(pointers).length < 2) lastPinch = null;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+canvas.addEventListener('wheel', function(e){
+  e.preventDefault();
+  goal.radius *= (1 + Math.sign(e.deltaY) * 0.09);
+  goal.radius = Math.min(800, Math.max(70, goal.radius));
+}, {passive: false});
+
+var viewButtons = document.querySelectorAll('#controls button[data-view]');
+viewButtons.forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var vdef = VIEWS[btn.dataset.view];
+    goal.theta = vdef.theta; goal.phi = vdef.phi; goal.radius = vdef.radius;
+    goal.tx = XE/2; goal.ty = 45; goal.tz = L/2;
+    viewButtons.forEach(function(b){ b.classList.remove('on'); });
+    btn.classList.add('on');
+  });
+});
+document.getElementById('btnMesh').addEventListener('click', function(){
+  var vis = !(wireSegs.length && wireSegs[0].visible);
+  wireSegs.forEach(function(s){ s.visible = vis; });
+  this.textContent = vis ? 'Hide wire' : 'Show wire';
+  this.classList.toggle('on', !vis);
+});
+document.getElementById('btnRoof').addEventListener('click', function(){
+  roofGroup.visible = !roofGroup.visible;
+  this.textContent = roofGroup.visible ? 'Hide roof' : 'Show roof';
+  this.classList.toggle('on', !roofGroup.visible);
+});
+document.getElementById('btnCeil').addEventListener('click', function(){
+  ceilGroup.visible = !ceilGroup.visible;
+  this.textContent = ceilGroup.visible ? 'Hide TBD ceiling' : 'Show TBD ceiling';
+  this.classList.toggle('on', !ceilGroup.visible);
+});
+document.getElementById('btnV1').addEventListener('click', function(){
+  v1Group.visible = !v1Group.visible;
+  this.textContent = v1Group.visible ? 'Hide V1 interior' : 'Show V1 interior';
+  this.classList.toggle('on', v1Group.visible);
+});
+document.getElementById('btnDoorPos').addEventListener('click', function(){
+  var west = !posW.visible;
+  posW.visible = west;
+  posM.visible = !west;
+  this.textContent = west ? 'Door: W corner' : 'Door: middle';
+});
+var explodeGoal = 0, explodeT = 0;
+document.getElementById('btnExplode').addEventListener('click', function(){
+  explodeGoal = explodeGoal ? 0 : 1;
+  this.textContent = explodeGoal ? 'Assemble' : 'Explode';
+  this.classList.toggle('on', !!explodeGoal);
+});
+var doorGoal = 0, doorT = 0, flapGoal = 0, flapT = 0;
+document.getElementById('btnDoor').addEventListener('click', function(){
+  doorGoal = doorGoal ? 0 : 1;
+  this.textContent = doorGoal ? 'Close door' : 'Open door';
+  this.classList.toggle('on', !!doorGoal);
+});
+document.getElementById('btnFlap').addEventListener('click', function(){
+  flapGoal = flapGoal ? 0 : 1;
+  this.textContent = flapGoal ? 'Close flap' : 'Open flap';
+  this.classList.toggle('on', !!flapGoal);
+});
+document.getElementById('btnDims').addEventListener('click', function(){
+  dimGroup.visible = !dimGroup.visible;
+  this.classList.toggle('on', dimGroup.visible);
+});
+var legend = document.getElementById('legend');
+document.getElementById('legendHead').addEventListener('click', function(){
+  legend.classList.toggle('collapsed');
+});
+if (window.innerWidth < 900) legend.classList.add('collapsed');
+
+window.addEventListener('resize', function(){
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function tick(){
+  requestAnimationFrame(tick);
+  var k = 0.12;
+  cur.theta  += (goal.theta  - cur.theta)  * k;
+  cur.phi    += (goal.phi    - cur.phi)    * k;
+  cur.radius += (goal.radius - cur.radius) * k;
+  cur.tx += (goal.tx - cur.tx) * k;
+  cur.ty += (goal.ty - cur.ty) * k;
+  cur.tz += (goal.tz - cur.tz) * k;
+  explodeT += (explodeGoal - explodeT) * 0.08;
+  for (var i = 0; i < panels.length; i++){
+    var o = panels[i].userData.off;
+    panels[i].position.set(o.x * explodeT, o.y * explodeT, o.z * explodeT);
+  }
+  doorT += (doorGoal - doorT) * 0.09;
+  flapT += (flapGoal - flapT) * 0.14;
+  if (doorPivotA) doorPivotA.rotation.y = -1.9 * doorT;
+  if (doorPivotM) doorPivotM.rotation.y = -1.9 * doorT;
+  if (flapPivot){
+    var tm = performance.now() / 1000;
+    flapPivot.rotation.x = -1.25 * flapT + Math.sin(tm * 2.2) * 0.06 * flapT;
+  }
+  applyCamera();
+  renderer.render(scene, camera);
+}
+applyCamera();
+tick();
+
+})();
+</script>
+</body>
+</html>
