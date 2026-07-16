@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catio V1 — as built</title>
+<style>
+  :root{
+    --ink:#1b1e23;
+    --panel:rgba(24,27,32,0.90);
+    --text:#eef0f2;
+    --dim:#9aa3ac;
+    --stain:#7a5a34;
+    --wire:#b9c0c6;
+  }
+  html,body{margin:0;height:100%;overflow:hidden;background:#e9edf0;
+    font-family:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace;}
+  canvas{display:block;}
+  #hud{position:fixed;top:14px;left:14px;max-width:min(420px,calc(100vw - 28px));
+    background:var(--panel);color:var(--text);border-radius:10px;padding:12px 14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.25);backdrop-filter:blur(6px);}
+  #hud h1{margin:0 0 2px;font-size:14px;font-weight:700;letter-spacing:.06em;}
+  #hud h1 span{color:var(--stain);}
+  #hud p{margin:2px 0 0;font-size:11px;color:var(--dim);line-height:1.5;}
+  #controls{position:fixed;bottom:14px;left:14px;display:flex;flex-wrap:wrap;gap:6px;
+    max-width:calc(100vw - 28px);}
+  #controls button{font:inherit;font-size:11.5px;letter-spacing:.03em;color:var(--text);
+    background:var(--panel);border:1px solid rgba(255,255,255,.14);border-radius:999px;
+    padding:7px 13px;cursor:pointer;transition:background .15s,border-color .15s;}
+  #controls button:hover{border-color:var(--stain);}
+  #controls button.on{background:var(--stain);border-color:var(--stain);color:#fff;}
+  #controls button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  #legend{position:fixed;bottom:14px;right:14px;background:var(--panel);color:var(--dim);
+    border-radius:10px;padding:10px 12px;font-size:10.5px;line-height:1.6;max-width:250px;}
+  #legend b{color:var(--text);font-weight:600;}
+  @media (max-width:640px){ #legend{display:none;} }
+</style>
+</head>
+<body>
+<div id="hud">
+  <h1>CATIO <span>V1</span> — AS BUILT (APPROX.)</h1>
+  <p>drag&nbsp;·&nbsp;orbit&nbsp;&nbsp;|&nbsp;&nbsp;scroll / pinch&nbsp;·&nbsp;zoom&nbsp;&nbsp;|&nbsp;&nbsp;shift-drag&nbsp;·&nbsp;pan</p>
+</div>
+<div id="controls">
+  <button data-view="corner" class="on">Corner</button>
+  <button data-view="front">Front</button>
+  <button data-view="side">Side</button>
+  <button data-view="top">Top</button>
+  <button id="btnMesh">Hide wire</button>
+  <button id="btnDims">Dimensions</button>
+</div>
+<div id="legend">
+  <b>Assumed dims (correct me):</b><br>
+  78" W × 32" D × 80" H box<br>
+  + gable to soffit, ~28" at tall end<br>
+  2×2 stained frame · welded-wire panels<br>
+  top-hinged door, left bay · cat flap in window insert
+</div>
+<canvas id="c"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ---------- dimensions (inches) ---------- */
+var W = 78;      // width along house wall
+var D = 32;      // depth off the wall
+var H = 80;      // height of the main box
+var TE = 28;     // extra gable height at the tall (right) end
+var X0 = 8;      // where the roofline meets the box top on the left
+var T = 1.5;     // lumber thickness (2x2 nominal)
+var SLOPE = TE / (W - X0);
+function yTop(x){ return x <= X0 ? H : H + (x - X0) * SLOPE; }
+
+/* ---------- renderer / scene ---------- */
+var canvas = document.getElementById('c');
+var renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe9edf0);
+scene.fog = new THREE.Fog(0xe9edf0, 700, 1400);
+
+var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 1, 3000);
+
+/* ---------- lights ---------- */
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a94a0, 0.85));
+var sun = new THREE.DirectionalLight(0xfff2dd, 0.85);
+sun.position.set(150, 220, 180);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -180; sun.shadow.camera.right = 200;
+sun.shadow.camera.top = 200;  sun.shadow.camera.bottom = -60;
+sun.shadow.camera.near = 10;  sun.shadow.camera.far = 700;
+scene.add(sun);
+
+/* ---------- materials ---------- */
+var M = {
+  stain:   new THREE.MeshLambertMaterial({color: 0x59422a}),
+  stainDk: new THREE.MeshLambertMaterial({color: 0x4c3722}),
+  pine:    new THREE.MeshLambertMaterial({color: 0xc7a468}),
+  trim:    new THREE.MeshLambertMaterial({color: 0xf3f1ea}),
+  ply:     new THREE.MeshLambertMaterial({color: 0xc99f63}),
+  glass:   new THREE.MeshLambertMaterial({color: 0x9fb6bf, emissive: 0x223038}),
+  flap:    new THREE.MeshLambertMaterial({color: 0x2d2f33}),
+  black:   new THREE.MeshLambertMaterial({color: 0x141417}),
+  tanKnit: new THREE.MeshLambertMaterial({color: 0xc4b98e}),
+  plaid:   new THREE.MeshLambertMaterial({color: 0x7d5a52}),
+  plaidLn: new THREE.MeshLambertMaterial({color: 0x46414f}),
+  rush:    new THREE.MeshLambertMaterial({color: 0xbfa878}),
+  cushion: new THREE.MeshLambertMaterial({color: 0x6e8a92}),
+  bedGray: new THREE.MeshLambertMaterial({color: 0x5c5f63}),
+  bowl:    new THREE.MeshLambertMaterial({color: 0xf0efeb}),
+  water:   new THREE.MeshLambertMaterial({color: 0x5f88a5})
+};
+var wireMat = new THREE.LineBasicMaterial({color: 0xaab2b8, transparent: true, opacity: 0.95});
+
+/* ---------- helpers ---------- */
+function box(sx, sy, sz, mat){
+  var m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+function addBox(parent, cx, cy, cz, sx, sy, sz, mat){
+  var m = box(sx, sy, sz, mat);
+  m.position.set(cx, cy, cz);
+  parent.add(m);
+  return m;
+}
+function v(x, y, z){ return new THREE.Vector3(x, y, z); }
+function lines(parent, pts){
+  var g = new THREE.BufferGeometry().setFromPoints(pts);
+  parent.add(new THREE.LineSegments(g, wireMat));
+}
+/* diagonal member between two points in a z-plane */
+function diagXY(parent, x1, y1, x2, y2, z, mat){
+  var dx = x2 - x1, dy = y2 - y1;
+  var len = Math.sqrt(dx*dx + dy*dy);
+  var m = box(len, T, T, mat);
+  m.position.set((x1+x2)/2, (y1+y2)/2, z);
+  m.rotation.z = Math.atan2(dy, dx);
+  parent.add(m);
+  return m;
+}
+
+/* ================================================================
+   HOUSE + DECK
+================================================================ */
+(function(){
+  // clapboard wall
+  var c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  var g = c.getContext('2d');
+  g.fillStyle = '#4a515b'; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = 'rgba(0,0,0,0.30)'; g.fillRect(0, 0, 64, 6);
+  g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(0, 58, 64, 6);
+  var tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, 130/6);
+  var wall = new THREE.Mesh(
+    new THREE.PlaneGeometry(320, 130),
+    new THREE.MeshLambertMaterial({map: tex})
+  );
+  wall.position.set(W/2, 65, -0.8);
+  wall.receiveShadow = true;
+  scene.add(wall);
+
+  // sloped soffit / roof edge above (follows the gable chord)
+  var ang = Math.atan2(TE, W - X0);
+  var slabLen = 200 / Math.cos(ang);
+  var slab = box(slabLen, 7, D + 22, M.trim);
+  // center the slab so its underside meets the chord midpoint, extended left
+  var midX = (X0 + W)/2 - 40;
+  var midY = yTop(Math.max(midX, X0)) + 4.5 + (midX < X0 ? 0 : 0);
+  slab.position.set(midX, yTop(midX < X0 ? X0 : midX) + 5, (D + 18)/2 - 4);
+  slab.rotation.z = ang;
+  scene.add(slab);
+
+  // deck planks (run along the wall)
+  var plankCols = [0xcdd0c9, 0xc2beb2, 0xd5d7d2, 0xbab5a8];
+  for (var i = 0; i < 14; i++){
+    var pm = new THREE.MeshLambertMaterial({color: plankCols[i % 4]});
+    var p = box(320, 1.2, 5.4, pm);
+    p.position.set(W/2, -0.6, i * 5.6 + 2.7);
+    p.castShadow = false;
+    scene.add(p);
+  }
+})();
+
+/* ---------- window + cat flap (inside the catio footprint) ---------- */
+(function(){
+  var wx0 = 17, wx1 = 45, wy0 = 26, wy1 = 74;  // window opening
+  var g = new THREE.Group();
+  // trim
+  addBox(g, (wx0+wx1)/2, wy1 + 1.75, 0.6, (wx1-wx0) + 10, 3.5, 1.2, M.trim);
+  addBox(g, (wx0+wx1)/2, wy0 - 1.75, 0.6, (wx1-wx0) + 10, 3.5, 1.2, M.trim);
+  addBox(g, wx0 - 1.75, (wy0+wy1)/2, 0.6, 3.5, (wy1-wy0) + 7, 1.2, M.trim);
+  addBox(g, wx1 + 1.75, (wy0+wy1)/2, 0.6, 3.5, (wy1-wy0) + 7, 1.2, M.trim);
+  // meeting rail
+  addBox(g, (wx0+wx1)/2, (wy0+wy1)/2, 0.6, (wx1-wx0), 2.4, 1.1, M.trim);
+  // upper sash: glass
+  addBox(g, (wx0+wx1)/2, (wy1 + (wy0+wy1)/2)/2, 0.35, (wx1-wx0) - 2, (wy1-wy0)/2 - 3, 0.5, M.glass);
+  // lower sash: plywood insert
+  addBox(g, (wx0+wx1)/2, (wy0 + (wy0+wy1)/2)/2, 0.5, (wx1-wx0) - 2, (wy1-wy0)/2 - 3, 0.8, M.ply);
+  // cat flap
+  var fx = (wx0+wx1)/2, fy = wy0 + 11;
+  addBox(g, fx, fy, 1.1, 12, 14, 0.8, M.trim);
+  addBox(g, fx, fy - 0.5, 1.5, 8.5, 10.5, 0.4, M.flap);
+  scene.add(g);
+})();
+
+/* ================================================================
+   CATIO FRAME
+================================================================ */
+var frame = new THREE.Group();
+scene.add(frame);
+(function(){
+  var rails = [T/2, 27, 58, H - T/2];  // bottom, under-door, over-door, top
+  // front face (z = D)
+  addBox(frame, T/2,   H/2, D, T, H, T, M.stain);
+  addBox(frame, W/2,   H/2, D, T, H, T, M.stain);
+  addBox(frame, W-T/2, H/2, D, T, H, T, M.stain);
+  for (var i = 0; i < rails.length; i++){
+    addBox(frame, W/2, rails[i], D, W, T, T, M.stain);
+  }
+  // gable: chord along the roofline + end post
+  diagXY(frame, X0, H, W - T/2, H + TE, D, M.stain);
+  addBox(frame, W - T/2, H + TE/2, D, T, TE, T, M.stain);
+
+  // side faces (x = 0 and x = W)
+  [0 + T/2, W - T/2].forEach(function(x){
+    addBox(frame, x, H/2, T/2, T, H, T, M.stain);   // wall-side post
+    rails.forEach(function(y){
+      addBox(frame, x, y, D/2, T, T, D, M.stain);   // horizontal runs
+    });
+  });
+  // top frame, depth direction handled by side top rails; add mid joist
+  addBox(frame, W/2, H - T/2, D/2, T, T, D, M.stain);
+
+  // corner gussets (45s), like the photos
+  diagXY(frame, 3, H - 12, 13, H - 2, D, M.stainDk);
+  diagXY(frame, W - 13, H - 2, W - 3, H - 12, D, M.stainDk);
+  diagXY(frame, W/2 - 10, H - 2, W/2, H - 12, D, M.stainDk);
+  diagXY(frame, 3, 60 + 10, 13, 60, D, M.stainDk);
+})();
+
+/* ---------- top-hinged access door, left bay ---------- */
+(function(){
+  var g = new THREE.Group();
+  var dx0 = 6, dx1 = 36, dy0 = 29, dy1 = 56, z = D + 1.1;
+  addBox(g, (dx0+dx1)/2, dy1, z, dx1-dx0, T, T, M.stainDk);
+  addBox(g, (dx0+dx1)/2, dy0, z, dx1-dx0, T, T, M.stainDk);
+  addBox(g, dx0, (dy0+dy1)/2, z, T, dy1-dy0, T, M.stainDk);
+  addBox(g, dx1, (dy0+dy1)/2, z, T, dy1-dy0, T, M.stainDk);
+  // hinges on the top rail
+  addBox(g, dx0 + 7,  dy1 + 1, z + 0.4, 4, 1, 0.6, M.black);
+  addBox(g, dx1 - 7,  dy1 + 1, z + 0.4, 4, 1, 0.6, M.black);
+  // slide bolt, bottom corner
+  addBox(g, dx1 - 3, dy0 - 1, z + 0.4, 3.5, 0.9, 0.6, M.black);
+  scene.add(g);
+})();
+
+/* ================================================================
+   WIRE MESH (toggleable)
+================================================================ */
+var wireGroup = new THREE.Group();
+scene.add(wireGroup);
+(function(){
+  var S = 4;  // grid spacing
+  var pts, x, y, z;
+
+  // front face
+  pts = [];
+  for (x = 0; x <= W; x += S){ pts.push(v(x, 0, D), v(x, H, D)); }
+  for (y = 0; y <= H; y += S){ pts.push(v(0, y, D), v(W, y, D)); }
+  lines(wireGroup, pts);
+
+  // gable triangle
+  pts = [];
+  for (x = X0 + S; x <= W; x += S){
+    if (yTop(x) > H + 0.5) pts.push(v(x, H, D), v(x, yTop(x), D));
+  }
+  for (y = H + S; y <= H + TE; y += S){
+    var xs = X0 + (y - H) / SLOPE;
+    if (xs < W) pts.push(v(xs, y, D), v(W, y, D));
+  }
+  lines(wireGroup, pts);
+
+  // sides
+  [0, W].forEach(function(fx){
+    var p = [];
+    for (z = 0; z <= D; z += S){ p.push(v(fx, 0, z), v(fx, H, z)); }
+    for (y = 0; y <= H; y += S){ p.push(v(fx, y, 0), v(fx, y, D)); }
+    lines(wireGroup, p);
+  });
+
+  // ceiling
+  pts = [];
+  for (x = 0; x <= W; x += S){ pts.push(v(x, H, 0), v(x, H, D)); }
+  for (z = 0; z <= D; z += S){ pts.push(v(0, H, z), v(W, H, z)); }
+  lines(wireGroup, pts);
+
+  // door panel second layer
+  pts = [];
+  for (x = 6; x <= 36; x += S){ pts.push(v(x, 29, D + 1.3), v(x, 56, D + 1.3)); }
+  for (y = 29; y <= 56; y += S){ pts.push(v(6, y, D + 1.3), v(36, y, D + 1.3)); }
+  lines(wireGroup, pts);
+})();
+
+/* ================================================================
+   INTERIOR
+================================================================ */
+(function(){
+  // upper slatted perch + knit blanket
+  var shelf = new THREE.Group();
+  shelf.position.set(25, 52, 15);
+  [-8, -3, 2, 7].forEach(function(zo){
+    addBox(shelf, 0, 0, zo, 38, 1.4, 3.6, M.stain);
+  });
+  addBox(shelf, -6, 1.9, 0, 22, 2.4, 17, M.tanKnit);
+  scene.add(shelf);
+  // two diagonal braces (in world space, leaning back to the wall)
+  var b1 = box(T, T, 20, M.stainDk);
+  b1.position.set(8, 45, 8); b1.rotation.x = -0.9; scene.add(b1);
+  var b2 = box(T, T, 20, M.stainDk);
+  b2.position.set(42, 45, 8); b2.rotation.x = -0.9; scene.add(b2);
+
+  // pine ramp: bench up to the perch
+  (function(){
+    var x1 = 58, y1 = 21, x2 = 36, y2 = 51;
+    var len = Math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+    var r = box(len, 1.2, 7, M.pine);
+    r.position.set((x1+x2)/2, (y1+y2)/2, 13);
+    r.rotation.z = Math.atan2(y2-y1, x2-x1);
+    scene.add(r);
+  })();
+
+  // bench with plaid blanket
+  var bench = new THREE.Group();
+  bench.position.set(58, 0, 9);
+  addBox(bench, 0, 18.5, 0, 34, 1.8, 14, M.stain);
+  [[-15,-5],[-15,5],[15,-5],[15,5]].forEach(function(p){
+    addBox(bench, p[0], 9, p[1], 1.6, 18, 1.6, M.stain);
+  });
+  addBox(bench, 0, 20.2, 0, 35, 1.6, 15.5, M.plaid);
+  addBox(bench, -8, 21.1, 0, 1.6, 0.3, 15.7, M.plaidLn);
+  addBox(bench, 6, 21.1, 0, 1.6, 0.3, 15.7, M.plaidLn);
+  addBox(bench, 0, 21.1, -3, 35.2, 0.3, 1.4, M.plaidLn);
+  scene.add(bench);
+
+  // rush-seat chair
+  var chair = new THREE.Group();
+  chair.position.set(27, 0, 8);
+  [[-6,-5.5],[6,-5.5]].forEach(function(p){
+    addBox(chair, p[0], 17, p[1], 1.4, 34, 1.4, M.stainDk); // back legs
+  });
+  [[-6,5.5],[6,5.5]].forEach(function(p){
+    addBox(chair, p[0], 8, p[1], 1.4, 16, 1.4, M.stainDk);  // front legs
+  });
+  addBox(chair, 0, 16.3, 0, 14, 1.6, 13, M.stainDk);
+  addBox(chair, 0, 17.3, 0, 12.5, 0.5, 11.5, M.rush);
+  addBox(chair, 0, 27, -5.5, 13, 2, 1, M.stainDk);
+  addBox(chair, 0, 32, -5.5, 13, 2, 1, M.stainDk);
+  scene.add(chair);
+
+  // floor cushion + cat bed + water bowl
+  addBox(scene, 13, 1.8, 20, 24, 3.4, 22, M.cushion);
+  var bed = new THREE.Mesh(new THREE.CylinderGeometry(8, 8.5, 4, 24), M.bedGray);
+  bed.position.set(10, 2, 7); bed.castShadow = bed.receiveShadow = true;
+  scene.add(bed);
+  var bowl = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 2.6, 2.4, 20), M.bowl);
+  bowl.position.set(38, 1.2, 22); bowl.castShadow = true; scene.add(bowl);
+  var water = new THREE.Mesh(new THREE.CylinderGeometry(2.7, 2.7, 0.3, 20), M.water);
+  water.position.set(38, 2.3, 22); scene.add(water);
+
+  // resident black cat, loafed on the deck boards
+  var cat = new THREE.Group();
+  var body = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), M.black);
+  body.scale.set(7.5, 3.6, 4); body.position.y = 3.4;
+  body.castShadow = true; cat.add(body);
+  var head = new THREE.Mesh(new THREE.SphereGeometry(2.8, 18, 12), M.black);
+  head.position.set(7.5, 4.6, 0); head.castShadow = true; cat.add(head);
+  [-1.4, 1.4].forEach(function(zo){
+    var ear = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2, 8), M.black);
+    ear.position.set(7.6, 7.4, zo); cat.add(ear);
+  });
+  var curve = new THREE.CatmullRomCurve3([
+    v(-6.5, 2, 0), v(-10, 1.4, 2.5), v(-12.5, 2.2, 5.5), v(-12.8, 4.8, 7.5)
+  ]);
+  var tail = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.85, 8, false), M.black);
+  tail.castShadow = true; cat.add(tail);
+  cat.position.set(47, 0.4, 14);
+  cat.rotation.y = 0.5;
+  scene.add(cat);
+})();
+
+/* ================================================================
+   DIMENSION LABELS (toggleable)
+================================================================ */
+var dimGroup = new THREE.Group();
+dimGroup.visible = false;
+scene.add(dimGroup);
+(function(){
+  function makeLabel(text){
+    var pad = 26, fs = 40;
+    var c = document.createElement('canvas');
+    var g = c.getContext('2d');
+    g.font = '600 ' + fs + 'px ui-monospace, Menlo, Consolas, monospace';
+    var w = Math.ceil(g.measureText(text).width);
+    c.width = w + pad * 2; c.height = fs + pad * 1.3;
+    g = c.getContext('2d');
+    g.font = '600 ' + fs + 'px ui-monospace, Menlo, Consolas, monospace';
+    var r = 16, x = 0, y = 0, ww = c.width, hh = c.height;
+    g.fillStyle = 'rgba(24,27,32,0.92)';
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + ww, y, x + ww, y + hh, r);
+    g.arcTo(x + ww, y + hh, x, y + hh, r);
+    g.arcTo(x, y + hh, x, y, r);
+    g.arcTo(x, y, x + ww, y, r);
+    g.closePath(); g.fill();
+    g.fillStyle = '#f2f4f6';
+    g.textBaseline = 'middle';
+    g.fillText(text, pad, hh/2 + 2);
+    var tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    var sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, depthTest: false, transparent: true}));
+    var s = 0.13;
+    sp.scale.set(c.width * s, c.height * s, 1);
+    return sp;
+  }
+  function place(text, x, y, z){
+    var sp = makeLabel(text);
+    sp.position.set(x, y, z);
+    dimGroup.add(sp);
+  }
+  place('~78" (6\u00bd ft) wide', W/2, 6, D + 18);
+  place('~32" deep', W + 22, 6, D/2);
+  place('~80" (6\'8") tall', -22, H/2, D + 4);
+  place('gable to soffit, ~28"', W - 4, H + TE + 8, D + 6);
+  place('door: hinged at top', 21, 42, D + 16);
+  place('cat flap \u2192 kitchen', 31, 86, 10);
+})();
+
+/* ================================================================
+   CAMERA / CONTROLS
+================================================================ */
+var target = new THREE.Vector3(W/2, 42, D/2);
+var cur  = {theta: -0.62, phi: 1.13, radius: 255, tx: target.x, ty: target.y, tz: target.z};
+var goal = {theta: cur.theta, phi: cur.phi, radius: cur.radius, tx: cur.tx, ty: cur.ty, tz: cur.tz};
+
+var VIEWS = {
+  corner: {theta: -0.62, phi: 1.13, radius: 255},
+  front:  {theta:  0.02, phi: 1.34, radius: 225},
+  side:   {theta: -1.45, phi: 1.30, radius: 215},
+  top:    {theta: -0.35, phi: 0.28, radius: 265}
+};
+
+function applyCamera(){
+  var st = Math.sin(cur.theta), ct = Math.cos(cur.theta);
+  var sp = Math.sin(cur.phi),  cp = Math.cos(cur.phi);
+  camera.position.set(
+    cur.tx + cur.radius * sp * st,
+    cur.ty + cur.radius * cp,
+    cur.tz + cur.radius * sp * ct
+  );
+  camera.lookAt(cur.tx, cur.ty, cur.tz);
+}
+
+/* pointer handling: orbit / pan / pinch */
+var pointers = {};
+var lastPinch = null;
+
+canvas.addEventListener('pointerdown', function(e){
+  pointers[e.pointerId] = {x: e.clientX, y: e.clientY, button: e.button, shift: e.shiftKey};
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', function(e){
+  var p = pointers[e.pointerId];
+  if (!p) return;
+  var ids = Object.keys(pointers);
+  if (ids.length === 2){
+    // pinch zoom
+    p.x = e.clientX; p.y = e.clientY;
+    var a = pointers[ids[0]], b = pointers[ids[1]];
+    var dist = Math.hypot(a.x - b.x, a.y - b.y);
+    if (lastPinch !== null){
+      goal.radius *= lastPinch / dist;
+      goal.radius = Math.min(760, Math.max(70, goal.radius));
+    }
+    lastPinch = dist;
+    return;
+  }
+  var dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (p.button === 2 || p.shift){
+    // pan in camera plane
+    var scale = goal.radius * 0.0016;
+    var right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+    var up    = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+    goal.tx += (-dx * right.x + dy * up.x) * scale;
+    goal.ty += (-dx * right.y + dy * up.y) * scale;
+    goal.tz += (-dx * right.z + dy * up.z) * scale;
+  } else {
+    goal.theta -= dx * 0.006;
+    goal.phi   -= dy * 0.005;
+    goal.phi = Math.min(1.52, Math.max(0.12, goal.phi));
+  }
+});
+function endPointer(e){
+  delete pointers[e.pointerId];
+  if (Object.keys(pointers).length < 2) lastPinch = null;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+canvas.addEventListener('wheel', function(e){
+  e.preventDefault();
+  goal.radius *= (1 + Math.sign(e.deltaY) * 0.09);
+  goal.radius = Math.min(760, Math.max(70, goal.radius));
+}, {passive: false});
+
+/* ---------- UI buttons ---------- */
+var viewButtons = document.querySelectorAll('#controls button[data-view]');
+viewButtons.forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var vdef = VIEWS[btn.dataset.view];
+    goal.theta = vdef.theta; goal.phi = vdef.phi; goal.radius = vdef.radius;
+    goal.tx = W/2; goal.ty = 42; goal.tz = D/2;
+    viewButtons.forEach(function(b){ b.classList.remove('on'); });
+    btn.classList.add('on');
+  });
+});
+document.getElementById('btnMesh').addEventListener('click', function(){
+  wireGroup.visible = !wireGroup.visible;
+  this.textContent = wireGroup.visible ? 'Hide wire' : 'Show wire';
+  this.classList.toggle('on', !wireGroup.visible);
+});
+document.getElementById('btnDims').addEventListener('click', function(){
+  dimGroup.visible = !dimGroup.visible;
+  this.classList.toggle('on', dimGroup.visible);
+});
+
+/* ---------- resize + loop ---------- */
+window.addEventListener('resize', function(){
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function tick(){
+  requestAnimationFrame(tick);
+  var k = 0.12;
+  cur.theta  += (goal.theta  - cur.theta)  * k;
+  cur.phi    += (goal.phi    - cur.phi)    * k;
+  cur.radius += (goal.radius - cur.radius) * k;
+  cur.tx += (goal.tx - cur.tx) * k;
+  cur.ty += (goal.ty - cur.ty) * k;
+  cur.tz += (goal.tz - cur.tz) * k;
+  applyCamera();
+  renderer.render(scene, camera);
+}
+applyCamera();
+tick();
+
+})();
+</script>
+</body>
+</html>
