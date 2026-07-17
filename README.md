@@ -51,10 +51,14 @@ V2 adds: **Hide TBD ceiling**, **Door: W corner / middle**, and
 - Phase 1 complete: a winter cubby (20×20×16" interior, 7" south-facing
   door, raised floor, shed roof) sits as a freestanding island — its roof
   is a route node between the sofa seat and the stair treads
+- Phase 2 begun: a bark-on black locust branch tree leans 11° from a
+  floor plate to a rail tie (no ceiling anchor needed) — its trunk meets
+  the new 14¾"-deep skywalk passing pad at deck height, giving the pad
+  its second exit and opening the south leg of the future skywalk
 - Roof: unresolved. Leading candidate is a flat wire ceiling at 80",
   rendered amber in the model until it earns a real color.
-- Next up: the roof call (it now gates the skywalk perimeter and the
-  branch-tree top anchor), then Phase 2 — skywalk, branch tree, stumps
+- Next up: the roof call (it still gates the full skywalk perimeter),
+  stump forest + scratch log, sun-deck siting on the corner plate
 
 ## Residents
 
@@ -62,5 +66,5 @@ Zoey (up top) and Hoby (down low). Both on the couch now, obviously.
 
 ## Revision history
 
-`revisions/` holds every draft — V1 rA–rH and V2 r1–r7. The latest of each
+`revisions/` holds every draft — V1 rA–rH and V2 r1–r8. The latest of each
 line lives at `index.html` / `v2.html`.
