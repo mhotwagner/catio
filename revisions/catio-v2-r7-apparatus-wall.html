@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catio V2 — draft r8</title>
+<title>Catio V2 — draft r7</title>
 <style>
   :root{
     --panel:rgba(24,27,32,0.90);
@@ -47,8 +47,8 @@
 </head>
 <body>
 <div id="hud">
-  <h1>CATIO <span>V2</span> — DRAFT R8</h1>
-  <p>phase-1 apparatus complete &middot; door position: two options<br>
+  <h1>CATIO <span>V2</span> — DRAFT R7</h1>
+  <p>apparatus wall drafted &middot; door position: two options<br>
   drag&nbsp;&middot;&nbsp;orbit&nbsp;&nbsp;|&nbsp;&nbsp;scroll / pinch&nbsp;&middot;&nbsp;zoom&nbsp;&nbsp;|&nbsp;&nbsp;shift-drag&nbsp;&middot;&nbsp;pan</p>
 </div>
 <div id="controls">
@@ -75,9 +75,8 @@
     sectional: full N wall + W chaise &mdash; flap exits onto it<br>
     short chaise on the W wall &middot; door: W corner / middle toggle<br>
     <i>gold</i> = new yellow pine &middot; amber grid @ 80" = ceiling, TBD<br>
-    <i>cedar</i> = phase-1 apparatus: 20&deg; senior ramp + stairs<br>
-    (every rise &le; 10&frac14;"), top run on the 55&frac14;" rail, and the<br>
-    winter cubby island &mdash; seat &rarr; roof &rarr; stairs<br>
+    <i>cedar</i> = apparatus wall (drafted): 20&deg; senior ramp +<br>
+    stairs, every rise &le; 10&frac14;" &middot; top run on the 55&frac14;" rail<br>
     old quad panel leaning on the wall, awaiting a plan
   </div>
 </div>
@@ -670,24 +669,6 @@ var APPARATUS = [
     pos:  {x: XE - 12, y: 40.75, z: 16},
     dims: {w: 11.25, d: 18, h: 0.75},
     phase: 1, built: false
-  },
-
-  /* ---- Phase-1 closer: the winter cubby (§3.4) ---------------------
-     Freestanding island on PT skids — the E-wall floor is fully
-     claimed by ramp + stair hardware, and the island's roof becomes
-     a route node: sofa seat (14) → roof (21–23.5) → stair tread 17.5
-     or shelf 26.25. 20×20" interior, 16" min interior height
-     (Hobie-rated), 7" door facing S away from the N/NW prevailing
-     wind, floor raised 4.25" on skids, cedar shed roof (6.6°) sheds
-     north. Clear of both door paths and the human center path;
-     8.5" cat corridor between cubby and ramp. Straw bedding, and the
-     winter double-wall (foam sandwich) is a later §3.4 upgrade. ---- */
-  {
-    id: 'cubby-c', type: 'cubby',
-    name: 'winter cubby island (§3.4) — 20×20×16" interior, 7" S-facing door, roof doubles as a perch on the seat → stairs route',
-    pos:  {x: 52, y: 0, z: 36},
-    dims: {w: 21.5, d: 21.5, h: 23.5},
-    phase: 1, built: false
   }
 ];
 
@@ -823,42 +804,8 @@ function buildRamp(a){
   return g;
 }
 
-/* Winter cubby: ply box on PT skids, shed roof high at the door face
-   (interior 16" at the low back wall), 7" door hole modeled as a
-   trim ring + dark disc — the model language for openings. */
-function buildCubby(a){
-  var g = new THREE.Group();
-  var w = a.dims.w, d = a.dims.d;
-  var fl = 4.25, bk = fl + 16, fr = fl + 18.5;
-  [2.5, w - 2.5].forEach(function(x){
-    addBox(g, x, 1.75, d/2, 3.5, 3.5, d - 2, M.stainDk);
-  });
-  addBox(g, w/2, fl - 0.375, d/2, w, 0.75, d, M.ply);
-  addBox(g, w/2, (fl + bk)/2, 0.375, w - 1.5, bk - fl, 0.75, M.ply);
-  addBox(g, w/2, (fl + fr)/2, d - 0.375, w - 1.5, fr - fl, 0.75, M.ply);
-  [0.375, w - 0.375].forEach(function(x){
-    addBox(g, x, (fl + fr)/2, d/2, 0.75, fr - fl, d, M.ply);
-  });
-  var th = Math.atan2(fr - bk, d);
-  var roof = box(w + 3, 0.75, (d + 3) / Math.cos(th), M.cedar);
-  roof.position.set(w/2, (bk + fr)/2 + 0.375/Math.cos(th), d/2);
-  roof.rotation.x = -th;
-  g.add(roof);
-  var ring = new THREE.Mesh(new THREE.CylinderGeometry(4.3, 4.3, 0.25, 24), M.cedar);
-  ring.rotation.x = Math.PI/2;
-  ring.position.set(w/2, fl + 7, d + 0.08);
-  ring.castShadow = true;
-  g.add(ring);
-  var hole = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 0.25, 24), M.flap);
-  hole.rotation.x = Math.PI/2;
-  hole.position.set(w/2, fl + 7, d + 0.22);
-  g.add(hole);
-  return g;
-}
-
 var BUILDERS = {sectional: buildSectional, chaise: buildChaise,
-                shelf: buildShelf, corner: buildCorner, ramp: buildRamp,
-                cubby: buildCubby};
+                shelf: buildShelf, corner: buildCorner, ramp: buildRamp};
 APPARATUS.forEach(function(a){
   var build = BUILDERS[a.type];
   if (!build){ console.warn('no builder for apparatus type: ' + a.type); return; }
@@ -1003,7 +950,6 @@ scene.add(dimGroup);
   place('stairs \u2014 every rise \u2264 10\u00bc"', 96, 34, 68);
   place('top run @ 56\u00be" \u2014 23" headroom', 96, 62, 46);
   place('fast lane: seat \u2192 26\u00bc \u2192 41\u00bd \u2192 top', 96, 40, 16);
-  place('cubby: 20\u00d720\u00d716", 7" door, straw bed', 44, 30, 30);
   place('quad panel: new home TBD', -44, 36, L + 14);
   place('cat flap \u2192 house', 16, 86, 12);
   place('Zoey', 30, 44, 5);

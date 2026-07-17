@@ -48,10 +48,13 @@ V2 adds: **Hide TBD ceiling**, **Door: W corner / middle**, and
   with a 20° cleated senior ramp — every rise on the senior spine ≤ 10¼",
   a faster three-hop lane up the north bay, and a corner survey plate +
   top run riding the 55¼" rail datum (23" headroom under the TBD ceiling)
+- Phase 1 complete: a winter cubby (20×20×16" interior, 7" south-facing
+  door, raised floor, shed roof) sits as a freestanding island — its roof
+  is a route node between the sofa seat and the stair treads
 - Roof: unresolved. Leading candidate is a flat wire ceiling at 80",
   rendered amber in the model until it earns a real color.
-- Next up: perimeter skywalk (starting with the deferred south top run),
-  water station, roof call
+- Next up: the roof call (it now gates the skywalk perimeter and the
+  branch-tree top anchor), then Phase 2 — skywalk, branch tree, stumps
 
 ## Residents
 
@@ -59,5 +62,5 @@ Zoey (up top) and Hoby (down low). Both on the couch now, obviously.
 
 ## Revision history
 
-`revisions/` holds every draft — V1 rA–rH and V2 r1–r6. The latest of each
+`revisions/` holds every draft — V1 rA–rH and V2 r1–r7. The latest of each
 line lives at `index.html` / `v2.html`.
