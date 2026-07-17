@@ -55,10 +55,17 @@ V2 adds: **Hide TBD ceiling**, **Door: W corner / middle**, and
   floor plate to a rail tie (no ceiling anchor needed) — its trunk meets
   the new 14¾"-deep skywalk passing pad at deck height, giving the pad
   its second exit and opening the south leg of the future skywalk
+- **The skywalk is in**: a horseshoe at 56¾" running east → north → west,
+  2×12 cedar on ledgers lagged into house studs, free-spanning the window
+  for 31" so the cats parade past the glass; corner plates at all three
+  turns, and a 40¾" tread drops the far end onto the chaise back. The
+  south leg stays open on purpose — a full-height door lives there. The
+  whole thing is roof-independent (≥14" headroom under any roof candidate)
 - Roof: unresolved. Leading candidate is a flat wire ceiling at 80",
   rendered amber in the model until it earns a real color.
-- Next up: the roof call (it still gates the full skywalk perimeter),
-  stump forest + scratch log, sun-deck siting on the corner plate
+- Next up: stump forest + scratch log in the west floor block, sun-deck
+  siting, and the roof call — which now only gates ceiling-anchored
+  extras (hanging toys, the tree's someday top anchor)
 
 ## Residents
 
@@ -66,5 +73,5 @@ Zoey (up top) and Hoby (down low). Both on the couch now, obviously.
 
 ## Revision history
 
-`revisions/` holds every draft — V1 rA–rH and V2 r1–r8. The latest of each
+`revisions/` holds every draft — V1 rA–rH and V2 r1–r9. The latest of each
 line lives at `index.html` / `v2.html`.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catio V2 — draft r10</title>
+<title>Catio V2 — draft r9</title>
 <style>
   :root{
     --panel:rgba(24,27,32,0.90);
@@ -47,8 +47,8 @@
 </head>
 <body>
 <div id="hud">
-  <h1>CATIO <span>V2</span> — DRAFT R10</h1>
-  <p>skywalk horseshoe up top &middot; door position: two options<br>
+  <h1>CATIO <span>V2</span> — DRAFT R9</h1>
+  <p>phase 2 begins: branch tree + skywalk pad &middot; door position: two options<br>
   drag&nbsp;&middot;&nbsp;orbit&nbsp;&nbsp;|&nbsp;&nbsp;scroll / pinch&nbsp;&middot;&nbsp;zoom&nbsp;&nbsp;|&nbsp;&nbsp;shift-drag&nbsp;&middot;&nbsp;pan</p>
 </div>
 <div id="controls">
@@ -80,9 +80,6 @@
     winter cubby island &mdash; seat &rarr; roof &rarr; stairs<br>
     phase 2: bark-on branch tree (floor plate + rail tie, no<br>
     ceiling) &mdash; its trunk unlocks the S skywalk passing pad<br>
-    skywalk horseshoe E&rarr;N&rarr;W @ 56&frac34;": 2&times;12 on house-stud<br>
-    ledgers, free-spanning the window &mdash; S leg stays open<br>
-    for the door (by design) &middot; roof-independent<br>
     old quad panel leaning on the wall, awaiting a plan
   </div>
 </div>
@@ -724,63 +721,6 @@ var APPARATUS = [
     pos:  {x: 52, y: RAILS[2] + 0.75, z: L - 0.75 - 14.75},
     dims: {w: 17.25, d: 14.75, h: 0.75},
     phase: 2, built: false
-  },
-
-  /* ---- The skywalk horseshoe (§1.2) — E → NE → N → NW → W --------
-     Roof-independent: every roof candidate sits at/above the 80"
-     panel tops (rafters at worst ~73"), so the 56.75 datum keeps
-     ≥ 14" headroom regardless — only ceiling-ANCHORED items stay
-     blocked on the roof call. N and W are house walls: 2x12 cedar
-     on ledgers + lag brackets into studs (§1.1's "real framing"),
-     free-spanning the window glass for 31" — §1.2's 24–32" bracket
-     envelope, and the reason those legs are 2x12 not 1x12. The S
-     wall can never close the loop: a full-height door lives there
-     in both variants, so the horseshoe is the maximal skywalk by
-     design. Far-end tie-in: a 40.75 tread drops to the chaise back
-     (29) — the loop lands in the flap world at both tips. Corner
-     plates are the §1.2 "generous corners" / passing spots. ---- */
-  {
-    id: 'skywalk-e-n56', type: 'shelf', face: 'E', mount: 'rail', lip: true,
-    name: 'skywalk link @ 56.75, E wall N bay — NE plate to the T1 gap (10.75" hop)',
-    pos:  {x: XE - 12, y: RAILS[2] + 0.75, z: 18.4},
-    dims: {w: 11.25, d: 11.6, h: 0.75},
-    phase: 2, built: false
-  },
-  {
-    id: 'corner-ne-56', type: 'corner', facing: 'NE',
-    name: 'NE corner plate @ 56.75 — E rail + house-wall cleat, survey stop over the sofa',
-    pos:  {x: XE - T/2 - 18, y: RAILS[2] + 0.75, z: 0.4},
-    dims: {w: 18, d: 18, h: 0.75},
-    phase: 2, built: false
-  },
-  {
-    id: 'skywalk-n-56', type: 'housewalk', face: 'N', lip: true,
-    gap:  [0, 13.1],
-    name: 'skywalk N run @ 56.75 — 2x12 on house-stud ledger, 31" free span across the window (the parade)',
-    pos:  {x: 18.4, y: RAILS[2], z: 1.5},
-    dims: {w: 50.85, d: 11.25, h: 1.5},
-    phase: 2, built: false
-  },
-  {
-    id: 'corner-nw-56', type: 'corner', facing: 'NW', braces: 1,
-    name: 'NW corner plate @ 56.75 — wing-wall cleat, single brace (no lagging into the window)',
-    pos:  {x: 0.4, y: RAILS[2] + 0.75, z: 0.4},
-    dims: {w: 18, d: 18, h: 0.75},
-    phase: 2, built: false
-  },
-  {
-    id: 'skywalk-w-56', type: 'housewalk', face: 'W', lip: true,
-    name: 'skywalk W run @ 56.75 — 2x12 on wing-wall studs, ends 12" clear of the door zone',
-    pos:  {x: 1.5, y: RAILS[2], z: 18.4},
-    dims: {w: 11.25, d: 47.6, h: 1.5},
-    phase: 2, built: false
-  },
-  {
-    id: 'tread-w-41', type: 'housewalk', face: 'W',
-    name: 'W tread @ 40.75 — the horseshoe\'s far-end exit: down 11.75 to the chaise back and the flap world',
-    pos:  {x: 1.5, y: 40, z: 58},
-    dims: {w: 11.25, d: 12, h: 0.75},
-    phase: 2, built: false
   }
 ];
 
@@ -864,11 +804,9 @@ function buildShelf(a){
   return g;
 }
 
-/* Corner plate: 3/4" ply right triangle, right angle abutting the two
-   wall faces at the 55.25 rail-top plane, knee braces per wall (V1
-   brace language; braces: 1 keeps only the first — for corners where
-   the second wall is glass). Built SE-style, then the whole sub-group
-   rotates for facing 'NE' / 'NW'. Lifts off — knock-down safe. */
+/* SE corner plate: 3/4" ply right triangle, right angle abutting the
+   two wall faces at the 55.25 rail-top plane, one knee brace per wall
+   (V1 brace language). Lifts off — knock-down safe. */
 function buildCorner(a){
   var leg = a.dims.w;
   var shape = new THREE.Shape([
@@ -881,45 +819,10 @@ function buildCorner(a){
   geo.translate(0, a.dims.h, 0);
   var m = new THREE.Mesh(geo, M.ply);
   m.castShadow = m.receiveShadow = true;
-  var sub = new THREE.Group();
-  sub.add(m);
-  diagXY(sub, 10, -0.7, leg, -7.5, leg/2, M.cedarDk);
-  if (a.braces !== 1) diagZY(sub, 10, -0.7, leg, -7.5, leg/2, 1.5, 1.5, M.cedarDk);
-  if (a.facing === 'NE'){ sub.rotation.y = Math.PI/2; sub.position.set(0, 0, leg); }
-  else if (a.facing === 'NW'){ sub.rotation.y = Math.PI; sub.position.set(leg, 0, leg); }
   var g = new THREE.Group();
-  g.add(sub);
-  return g;
-}
-
-/* House-wall run: 2x12 (or 1x12 tread) on a 2x2 ledger lagged into
-   the N-wall / wing-wall studs — steel angle brackets marked every
-   ≤ 28". a.gap = [from, to] skips ledger + brackets across the
-   window; the board free-spans it. Lip on the room side. */
-function buildHousewalk(a){
-  var g = new THREE.Group();
-  var w = a.dims.w, d = a.dims.d, h = a.dims.h;
-  var N = (a.face === 'N');
-  var len = N ? w : d;
-  addBox(g, w/2, h/2, d/2, w, h, d, M.cedar);
-  if (a.lip){
-    if (N) addBox(g, w/2, h + 0.375, d - 0.375, w, 0.75, 0.75, M.cedar);
-    else   addBox(g, w - 0.375, h + 0.375, d/2, 0.75, 0.75, d, M.cedar);
-  }
-  var segs = [[0, len]];
-  if (a.gap) segs = (a.gap[0] <= 0.1) ? [[a.gap[1], len]] : [[0, a.gap[0]], [a.gap[1], len]];
-  segs.forEach(function(s){
-    var sl = s[1] - s[0];
-    if (sl < 2) return;
-    if (N) addBox(g, s[0] + sl/2, -0.75, 0.75, sl, 1.5, 1.5, M.cedarDk);
-    else   addBox(g, 0.75, -0.75, s[0] + sl/2, 1.5, 1.5, sl, M.cedarDk);
-    var nBr = Math.max(2, Math.ceil(sl / 28) + 1);
-    for (var i = 0; i < nBr; i++){
-      var t = s[0] + 1 + (sl - 2) * i / (nBr - 1);
-      if (N) addBox(g, t, -1.9, 0.3, 1.2, 3, 0.5, M.steel);
-      else   addBox(g, 0.3, -1.9, t, 0.5, 3, 1.2, M.steel);
-    }
-  });
+  g.add(m);
+  diagXY(g, 10, -0.7, leg, -7.5, leg/2, M.cedarDk);
+  diagZY(g, 10, -0.7, leg, -7.5, leg/2, 1.5, 1.5, M.cedarDk);
   return g;
 }
 
@@ -1036,7 +939,7 @@ function buildTree(a){
 
 var BUILDERS = {sectional: buildSectional, chaise: buildChaise,
                 shelf: buildShelf, corner: buildCorner, ramp: buildRamp,
-                cubby: buildCubby, tree: buildTree, housewalk: buildHousewalk};
+                cubby: buildCubby, tree: buildTree};
 APPARATUS.forEach(function(a){
   var build = BUILDERS[a.type];
   if (!build){ console.warn('no builder for apparatus type: ' + a.type); return; }
@@ -1184,9 +1087,6 @@ scene.add(dimGroup);
   place('cubby: 20\u00d720\u00d716", 7" door, straw bed', 44, 30, 30);
   place('branch tree \u2014 11\u00b0 lean, floor plate + rail tie', 24, 54, 60);
   place('skywalk pad 14\u00be" \u2014 tree junction W, plate E', 56, 68, 86);
-  place('skywalk horseshoe E\u2192N\u2192W @ 56\u00be"', 44, 72, 4);
-  place('2\u00d712 parades across the window glass', 16, 64, -8);
-  place('W tread 40\u00be \u2192 chaise back \u2192 flap', -10, 46, 62);
   place('quad panel: new home TBD', -44, 36, L + 14);
   place('cat flap \u2192 house', 16, 86, 12);
   place('Zoey', 30, 44, 5);
