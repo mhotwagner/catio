@@ -44,9 +44,14 @@ V2 adds: **Hide TBD ceiling**, **Door: W corner / middle**, and
 - Outdoor sectional along the **full north wall** plus a short chaise on the
   west wall: the window cat-flap exits directly onto the sofa back.
   This is the point of the entire project.
+- Apparatus wall drafted (east + SE corner): staggered cedar shelf runs
+  with a 20° cleated senior ramp — every rise on the senior spine ≤ 10¼",
+  a faster three-hop lane up the north bay, and a corner survey plate +
+  top run riding the 55¼" rail datum (23" headroom under the TBD ceiling)
 - Roof: unresolved. Leading candidate is a flat wire ceiling at 80",
   rendered amber in the model until it earns a real color.
-- Next up: the apparatus wall (east + SE corner), water station, roof call
+- Next up: perimeter skywalk (starting with the deferred south top run),
+  water station, roof call
 
 ## Residents
 
@@ -54,5 +59,5 @@ Zoey (up top) and Hoby (down low). Both on the couch now, obviously.
 
 ## Revision history
 
-`revisions/` holds every draft — V1 rA–rH and V2 r1–r5. The latest of each
+`revisions/` holds every draft — V1 rA–rH and V2 r1–r6. The latest of each
 line lives at `index.html` / `v2.html`.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catio V2 — draft r7</title>
+<title>Catio V2 — draft r6</title>
 <style>
   :root{
     --panel:rgba(24,27,32,0.90);
@@ -47,8 +47,8 @@
 </head>
 <body>
 <div id="hud">
-  <h1>CATIO <span>V2</span> — DRAFT R7</h1>
-  <p>apparatus wall drafted &middot; door position: two options<br>
+  <h1>CATIO <span>V2</span> — DRAFT R6</h1>
+  <p>lounge under the flap &middot; door position: two options<br>
   drag&nbsp;&middot;&nbsp;orbit&nbsp;&nbsp;|&nbsp;&nbsp;scroll / pinch&nbsp;&middot;&nbsp;zoom&nbsp;&nbsp;|&nbsp;&nbsp;shift-drag&nbsp;&middot;&nbsp;pan</p>
 </div>
 <div id="controls">
@@ -75,8 +75,6 @@
     sectional: full N wall + W chaise &mdash; flap exits onto it<br>
     short chaise on the W wall &middot; door: W corner / middle toggle<br>
     <i>gold</i> = new yellow pine &middot; amber grid @ 80" = ceiling, TBD<br>
-    <i>cedar</i> = apparatus wall (drafted): 20&deg; senior ramp +<br>
-    stairs, every rise &le; 10&frac14;" &middot; top run on the 55&frac14;" rail<br>
     old quad panel leaning on the wall, awaiting a plan
   </div>
 </div>
@@ -146,8 +144,6 @@ var M = {
   secFrame:   new THREE.MeshLambertMaterial({color: 0x4b4f54}),   // outdoor sectional set:
   secCushion: new THREE.MeshLambertMaterial({color: 0xb7b0a1}),   //   frame / seat cushions / back
   secBack:    new THREE.MeshLambertMaterial({color: 0xa8a193}),
-  cedar:      new THREE.MeshLambertMaterial({color: 0xc98e5f}),   // apparatus boards (1x12 cedar)
-  cedarDk:    new THREE.MeshLambertMaterial({color: 0xa9744c}),   // braces / hangers / cleats
   bedGray: new THREE.MeshLambertMaterial({color: 0x5c5f63}),
   bowl:    new THREE.MeshLambertMaterial({color: 0xf0efeb}),
   water:   new THREE.MeshLambertMaterial({color: 0x5f88a5}),
@@ -586,89 +582,6 @@ var APPARATUS = [
     pos:  {x: 2, y: 0, z: 2},
     dims: {w: 30, d: L - 24, h: 29},   // foot ends at z = L - 22: keeps 22" clear to the S-wall door
     phase: 0, built: false
-  },
-
-  /* ---- Phase-1 apparatus wall: E face + SE corner ------------------
-     Catalog §1.1 cedar shelf runs + §1.5 senior ramp; corner plate per
-     §1.2/§3.2. Boards are 1x12 cedar (11.25 x 0.75 actual), plates 3/4"
-     ply. Senior spine, floor → top run, every rise ≤ 10.25":
-       ramp 20.0° → 8.75 → 17.5 → 26.25 → 36.5 → 46.5 → 56.75
-     Standard fast lane (N bay): seat 14 → 26.25 → 41.5 → 56.75.
-     The 30.5" mid-rail gap gets its intermediate steps: 36.5/46.5 in
-     the S bay, 41.5 in the N bay. Top-run headroom under the TBD 80"
-     ceiling: 23.25". Loads land on rails/stiles or the floor — never
-     mesh; the corner plate lifts off the rails (knock-down safe). The
-     S-wall top run is DEFERRED to the Phase-2 skywalk: alone it would
-     be a single-exit spur. ---- */
-  {
-    id: 'ramp-s', type: 'ramp', lowEnd: 'W',
-    name: 'senior ramp, S wall — 20.0°, cleats every 4", low outer rail',
-    pos:  {x: 52, y: 0, z: L - 12},
-    dims: {w: 22, d: 11.25, h: 8.75},  // foot lands 2" east of the middle-door panel edge
-    phase: 1, built: false
-  },
-  {
-    id: 'landing-se-9', type: 'shelf', face: 'S', mount: 'leg', ply: true,
-    name: 'ramp-top corner landing @ 8.75 — level walk-off, staging with the ramp crest',
-    pos:  {x: 74, y: 8, z: L - 13.25},
-    dims: {w: 13.25, d: 12.5, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'step-e-17', type: 'shelf', face: 'E', mount: 'hang',
-    name: 'stair tread @ 17.5, E wall — hung from the 24.75 rail',
-    pos:  {x: XE - 12, y: 16.75, z: 42},
-    dims: {w: 11.25, d: 14, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'shelf-e-26', type: 'shelf', face: 'E', mount: 'rail',
-    name: 'shelf run @ 26.25, E wall S bay — on the 24.75 rail',
-    pos:  {x: XE - 12, y: RAILS[1] + 0.75, z: 50},
-    dims: {w: 11.25, d: 26.5, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'tread-s-36', type: 'shelf', face: 'S', mount: 'post',
-    name: 'stair tread @ 36.5, S wall — posts standing on the 24.75 rail',
-    pos:  {x: 62, y: 35.75, z: L - 12},
-    dims: {w: 18, d: 11.25, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'tread-e-46', type: 'shelf', face: 'E', mount: 'hang',
-    name: 'stair tread @ 46.5, E wall — hung from the 55.25 rail, pop-up lane past the corner plate',
-    pos:  {x: XE - 12, y: 45.75, z: 59.25},
-    dims: {w: 11.25, d: 13.75, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'corner-56', type: 'corner',
-    name: 'corner survey plate @ 56.75 — ply triangle on the 55.25 rail datum; winter-sun perch candidate',
-    pos:  {x: XE - T/2 - 18, y: RAILS[2] + 0.75, z: L - T/2 - 18},
-    dims: {w: 18, d: 18, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'toprun-e-56', type: 'shelf', face: 'E', mount: 'rail', lip: true,
-    name: 'top run @ 56.75, E wall S bay — meets the corner plate; future skywalk segment',
-    pos:  {x: XE - 12, y: RAILS[2] + 0.75, z: 40.75},
-    dims: {w: 11.25, d: 18.5, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'shelf-n-26', type: 'shelf', face: 'E', mount: 'rail',
-    name: 'shelf run @ 26.25, E wall N bay — sofa-back walk-off; 16" level link to the S-bay run',
-    pos:  {x: XE - 12, y: RAILS[1] + 0.75, z: 8},
-    dims: {w: 11.25, d: 26, h: 0.75},
-    phase: 1, built: false
-  },
-  {
-    id: 'shelf-n-41', type: 'shelf', face: 'E', mount: 'hang',
-    name: 'fast-lane step @ 41.5, E wall N bay — the N bay mid-rail intermediate',
-    pos:  {x: XE - 12, y: 40.75, z: 16},
-    dims: {w: 11.25, d: 18, h: 0.75},
-    phase: 1, built: false
   }
 ];
 
@@ -699,113 +612,7 @@ function buildChaise(a){
   return g;
 }
 
-/* Shelf/tread/landing: 1x12 (or ply) board against the E or S wall.
-   mount: 'rail' = sits on the rail at its underside + V1-style knee
-   braces; 'hang' = 2x2 hangers up to the next rail above; 'post' =
-   2x2 standoffs standing on the rail below; 'leg' = freestanding
-   legs to the floor. Board coords are relative to pos (min corner);
-   the wall's inner face is at rel x = dims.w (E) / rel z = dims.d (S). */
-function buildShelf(a){
-  var g = new THREE.Group();
-  var w = a.dims.w, d = a.dims.d, h = a.dims.h;
-  var E = (a.face === 'E');
-  var len = E ? d : w;
-  var i, off, railY;
-  addBox(g, w/2, h/2, d/2, w, h, d, a.ply ? M.ply : M.cedar);
-  if (a.lip){
-    if (E) addBox(g, 0.375, h + 0.375, d/2, 0.75, 0.75, d, M.cedar);
-    else   addBox(g, w/2, h + 0.375, 0.375, w, 0.75, 0.75, M.cedar);
-  }
-  var offs = (len > 24) ? [3, len/2, len - 3] : [3, len - 3];
-  if (a.mount === 'rail'){
-    for (i = 0; i < offs.length; i++){
-      off = offs[i];
-      if (E) diagXY(g, 1.5, -1, w, -8.5, off, M.cedarDk);
-      else   diagZY(g, 1.5, -1, d, -8.5, off, 1.5, 1.5, M.cedarDk);
-    }
-  } else if (a.mount === 'hang'){
-    railY = 0;
-    for (i = 0; i < RAILS.length; i++){ if (RAILS[i] > a.pos.y + 1){ railY = RAILS[i]; break; } }
-    var hh = railY + 0.75 - a.pos.y;
-    [2.5, len - 2.5].forEach(function(o){
-      if (E) addBox(g, w - 0.75, hh/2, o, 1.5, hh, 1.5, M.cedarDk);
-      else   addBox(g, o, hh/2, d - 0.75, 1.5, hh, 1.5, M.cedarDk);
-    });
-    if (E) diagXY(g, 1.5, 0.2, w, hh - 0.75, len/2, M.cedarDk);
-    else   diagZY(g, 1.5, 0.2, d, hh - 0.75, len/2, 1.5, 1.5, M.cedarDk);
-  } else if (a.mount === 'post'){
-    railY = 0;
-    for (i = RAILS.length - 1; i >= 0; i--){ if (RAILS[i] < a.pos.y - 1){ railY = RAILS[i]; break; } }
-    var pb = railY + 0.75 - a.pos.y;   // negative: rail top, relative
-    [2.5, len - 2.5].forEach(function(o){
-      if (E) addBox(g, w - 0.75, pb/2, o, 1.5, -pb, 1.5, M.cedarDk);
-      else   addBox(g, o, pb/2, d - 0.75, 1.5, -pb, 1.5, M.cedarDk);
-    });
-    if (E) diagXY(g, 1.5, -1, w, pb + 0.5, len/2, M.cedarDk);
-    else   diagZY(g, 1.5, -1, d, pb + 0.5, len/2, 1.5, 1.5, M.cedarDk);
-  } else if (a.mount === 'leg'){
-    var hl = a.pos.y;
-    [[1.2, 1.8], [1.2, d - 1.8], [w - 1.2, 1.8], [w - 1.2, d - 1.8]].forEach(function(p){
-      addBox(g, p[0], -hl/2, p[1], 1.5, hl, 1.5, M.cedarDk);
-    });
-  }
-  return g;
-}
-
-/* SE corner plate: 3/4" ply right triangle, right angle abutting the
-   two wall faces at the 55.25 rail-top plane, one knee brace per wall
-   (V1 brace language). Lifts off — knock-down safe. */
-function buildCorner(a){
-  var leg = a.dims.w;
-  var shape = new THREE.Shape([
-    new THREE.Vector2(leg, leg),
-    new THREE.Vector2(0, leg),
-    new THREE.Vector2(leg, 0)
-  ]);
-  var geo = new THREE.ExtrudeGeometry(shape, {depth: a.dims.h, bevelEnabled: false});
-  geo.rotateX(Math.PI / 2);
-  geo.translate(0, a.dims.h, 0);
-  var m = new THREE.Mesh(geo, M.ply);
-  m.castShadow = m.receiveShadow = true;
-  var g = new THREE.Group();
-  g.add(m);
-  diagXY(g, 10, -0.7, leg, -7.5, leg/2, M.cedarDk);
-  diagZY(g, 10, -0.7, leg, -7.5, leg/2, 1.5, 1.5, M.cedarDk);
-  return g;
-}
-
-/* Senior ramp: cleated 1x12 deck rising along x (lowEnd 'W'), low
-   1x2 rail on the outer edge, 2x2 legs under the high end. The foot
-   bears on the floor — load path per the domain notes. */
-function buildRamp(a){
-  var g = new THREE.Group();
-  var w = a.dims.w, d = a.dims.d, h = a.dims.h;
-  var rise = h - 0.75, run = w;
-  var th = Math.atan2(rise, run);
-  var len = Math.sqrt(rise*rise + run*run);
-  var deck = box(len, 0.75, d, M.cedar);
-  deck.position.set(w/2, (0.375 + h - 0.375)/2, d/2);
-  deck.rotation.z = th;
-  g.add(deck);
-  for (var t = 3; t < len - 1.5; t += 4){
-    var cl = box(1.5, 0.75, d - 0.5, M.cedarDk);
-    cl.position.set(t*Math.cos(th) - 0.19, 0.375 + t*Math.sin(th) + 0.52, d/2);
-    cl.rotation.z = th;
-    g.add(cl);
-  }
-  var rail = box(len - 1, 1.5, 0.75, M.cedarDk);
-  rail.position.set(w/2, (0.375 + h - 0.375)/2 + 2.4, 0.4);
-  rail.rotation.z = th;
-  g.add(rail);
-  var lb = h - 1.5;
-  [1.5, d - 1.5].forEach(function(z){
-    addBox(g, w - 2, lb/2, z, 1.5, lb, 1.5, M.cedarDk);
-  });
-  return g;
-}
-
-var BUILDERS = {sectional: buildSectional, chaise: buildChaise,
-                shelf: buildShelf, corner: buildCorner, ramp: buildRamp};
+var BUILDERS = {sectional: buildSectional, chaise: buildChaise};
 APPARATUS.forEach(function(a){
   var build = BUILDERS[a.type];
   if (!build){ console.warn('no builder for apparatus type: ' + a.type); return; }
@@ -946,10 +753,6 @@ scene.add(dimGroup);
   place('sectional: full N wall \u2014 flap lands on it', 40, 42, 12);
   place('chaise foot \u2192 22" gap to the door', 17, 24, 58);
   place('ceiling @ 80" \u2014 TBD', 64, 92, 39);
-  place('senior ramp \u2014 20\u00b0, cleats every 4"', 56, 14, 90);
-  place('stairs \u2014 every rise \u2264 10\u00bc"', 96, 34, 68);
-  place('top run @ 56\u00be" \u2014 23" headroom', 96, 62, 46);
-  place('fast lane: seat \u2192 26\u00bc \u2192 41\u00bd \u2192 top', 96, 40, 16);
   place('quad panel: new home TBD', -44, 36, L + 14);
   place('cat flap \u2192 house', 16, 86, 12);
   place('Zoey', 30, 44, 5);
